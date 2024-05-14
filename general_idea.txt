@@ -1,0 +1,24 @@
+
+* configuration file (.atomic file in project dir) through atomic init. 
+	- can have user define a template to use for specific language or custom template?
+	- ideal to have it sniff project to detect file type to autodetect.
+
+* atomic watch -- user provides optional issue number to help track progress and on `atomic build, test, run or custom command` 
+	we would do a local atomic commit with issue name + command name + number
+
+* atomic stop
+
+* atomic custom commands K,V pair so long as they dont collide
+
+* pre-post hooks
+    - pre: external script to call prior to doing run
+	- post: cleanup - post run script calling depending on run success
+
+* state file + sqlite db for good metrics
+	current issue number
+	issue name
+	branch name
+	failure rates in post hooks for build , test, run
+	possibly table for std-out / std-err output
+
+"cradle to grave" visable output of what developer goes through
