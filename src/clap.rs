@@ -1,15 +1,22 @@
-use std::{fs::OpenOptions, io::Read, path::Path};
+use std::{fs::OpenOptions, io::Read};
 
-use clap::{arg, Command};
+use clap::{arg, value_parser, Command};
 use toml::Value;
 
 fn cli() -> Command {
     Command::new("atomic")
-        .about("auto local commit while testing without having to think about it.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
+        .about("auto local commit while testing without having to think about it")
         .allow_external_subcommands(true)
         .subcommand(Command::new("init").about("initialize atomic template in project repository"))
+        .subcommand(
+            Command::new("watch")
+                .about("configure issue details for atomic commits")
+                .arg(arg!([issue] "track issue number (u64)").value_parser(value_parser!(u64)))
+                .arg_required_else_help(true)
+                .arg(
+                    arg!([desc] "brief description of problem").value_parser(value_parser!(String)),
+                ),
+        )
     // .subcommand(
     //     Command::new("diff")
     //         .about("Compare two commits")
@@ -48,9 +55,9 @@ fn cli() -> Command {
     // )
 }
 
-fn push_args() -> Vec<clap::Arg> {
-    vec![arg!(-m --message <MESSAGE>)]
-}
+// fn push_args() -> Vec<clap::Arg> {
+//     vec![arg!(-m --message <MESSAGE>)]
+// }
 
 pub fn start_cli() {
     let matches = cli().get_matches();
@@ -59,7 +66,6 @@ pub fn start_cli() {
         Some(("init", sub_matches)) => {
             start_init();
         }
-        None => todo!(),
         // Some(("clone", sub_matches)) => {
         //     println!(
         //         "Cloning {}",
@@ -131,7 +137,7 @@ pub fn start_cli() {
         //         .flatten()
         //         .collect::<Vec<_>>();
         //     println!("Calling out to {ext:?} with {args:?}");
-        _ => unreachable!(), // If all subcommands are defined above, anything else is unreachable!()
+        _ => (), // If all subcommands are defined above, anything else is unreachable!()
     }
 }
 
