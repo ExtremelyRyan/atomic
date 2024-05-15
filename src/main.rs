@@ -1,3 +1,4 @@
+use clap::start_cli;
 use notify::{Config, PollWatcher, RecommendedWatcher, RecursiveMode, Watcher, WatcherKind};
 use std::path::Path;
 use std::sync::mpsc::channel;
@@ -6,7 +7,8 @@ use std::time::Duration;
 mod clap;
 
 fn main() {
-    send_command();
+    // send_command();
+    start_cli();
 }
 
 fn send_command() {

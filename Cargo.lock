@@ -100,6 +100,8 @@ dependencies = [
  "config",
  "git2",
  "notify",
+ "serde",
+ "toml",
 ]
 
 [[package]]

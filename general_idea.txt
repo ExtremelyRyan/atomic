@@ -1,5 +1,5 @@
 
-* configuration file (.atomic file in project dir) through atomic init. 
+* configuration file (atomic file in project dir) through atomic init. 
 	- can have user define a template to use for specific language or custom template?
 	- ideal to have it sniff project to detect file type to autodetect.
 

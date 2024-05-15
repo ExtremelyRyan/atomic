@@ -1,30 +1,30 @@
 
 <h1 align="center">
-  <a href="https://github.com/GITHUB_USERNAME/REPO_SLUG">
+  <a href="https://github.com/ExtremelyRyan/atomic">
     <!-- Please provide path to your logo here -->
     <img src="docs/images/logo.svg" alt="Logo" width="100" height="100">
   </a>
 </h1>
 
 <div align="center">
-  PROJECT_NAME
+  <h1>Atomic</h1>
   <br />
   <a href="#about"><strong>Explore the screenshots »</strong></a>
   <br />
   <br />
-  <a href="https://github.com/GITHUB_USERNAME/REPO_SLUG/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
+  <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
   ·
-  <a href="https://github.com/GITHUB_USERNAME/REPO_SLUG/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
+  <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
   .
-  <a href="https://github.com/GITHUB_USERNAME/REPO_SLUG/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+">Ask a Question</a>
+  <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+">Ask a Question</a>
 </div>
 
 <div align="center">
 <br />
 
-[![Project license](https://img.shields.io/github/license/GITHUB_USERNAME/REPO_SLUG.svg?style=flat-square)](LICENSE)
+[![Project license](https://img.shields.io/github/license/ExtremelyRyan/atomic.svg?style=flat-square)](LICENSE)
 
-[![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+[![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![code with love by ExtremelyRyan](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-ExtremelyRyan-ff1414.svg?style=flat-square)](https://github.com/ExtremelyRyan)
 
 </div>
@@ -75,8 +75,7 @@
 
 ### Built With
 
-> **[?]**
-> Please provide the technologies that are used in the project.
+> Rust
 
 ## Getting Started
 
@@ -98,11 +97,11 @@
 
 ## Roadmap
 
-See the [open issues](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues) for a list of proposed features (and known issues).
+See the [open issues](https://github.com/ExtremelyRyan/atomic/issues) for a list of proposed features (and known issues).
 
-- [Top Feature Requests](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues?q=label%3Aenhancement+is%3Aopen+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Top Bugs](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues?q=is%3Aissue+is%3Aopen+label%3Abug+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Newest Bugs](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
+- [Top Feature Requests](https://github.com/ExtremelyRyan/atomic/issues?q=label%3Aenhancement+is%3Aopen+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
+- [Top Bugs](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aissue+is%3Aopen+label%3Abug+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
+- [Newest Bugs](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
 
 ## Support
 
@@ -111,14 +110,14 @@ See the [open issues](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues) for a
 
 Reach out to the maintainer at one of the following places:
 
-- [GitHub issues](https://github.com/GITHUB_USERNAME/REPO_SLUG/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
+- [GitHub issues](https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
 - Contact options listed on [this GitHub profile](https://github.com/GITHUB_USERNAME)
 
 ## Project assistance
 
 If you want to say **thank you** or/and support active development of PROJECT_NAME:
 
-- Add a [GitHub Star](https://github.com/GITHUB_USERNAME/REPO_SLUG) to the project.
+- Add a [GitHub Star](https://github.com/ExtremelyRyan/atomic) to the project.
 - Tweet about the PROJECT_NAME.
 - Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
 
@@ -135,7 +134,7 @@ Please read [our contribution guidelines](docs/CONTRIBUTING.md), and thank you f
 
 The original setup of this repository is by [FULL_NAME](https://github.com/GITHUB_USERNAME).
 
-For a full list of all authors and contributors, see [the contributors page](https://github.com/GITHUB_USERNAME/REPO_SLUG/contributors).
+For a full list of all authors and contributors, see [the contributors page](https://github.com/ExtremelyRyan/atomic/contributors).
 
 ## Security
 
