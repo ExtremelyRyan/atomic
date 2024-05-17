@@ -11,11 +11,11 @@ fn cli() -> Command {
         .subcommand(
             Command::new("watch")
                 .about("configure issue details for atomic commits")
-                .arg(arg!([issue] "track issue number (u64)").value_parser(value_parser!(u64)))
-                .arg_required_else_help(true)
-                .arg(
-                    arg!([desc] "brief description of problem").value_parser(value_parser!(String)),
-                ),
+                // .arg(arg!([issue] "track issue number (u64)").value_parser(value_parser!(u64)))
+                // .arg_required_else_help(false)
+                // .arg(
+                //     arg!([desc] "brief description of problem").value_parser(value_parser!(String)),
+                // ),
         )
     // .subcommand(
     //     Command::new("diff")

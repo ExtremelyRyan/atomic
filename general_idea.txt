@@ -1,10 +1,21 @@
 
-* configuration file (atomic file in project dir) through atomic init. 
+* atomic init -- configuration file (atomic file in project dir). 
 	- can have user define a template to use for specific language or custom template?
 	- ideal to have it sniff project to detect file type to autodetect.
 
+	- [ ] checks for existance of atomic.toml in project
+		- [ ] creates file based on template user specifies
+	- [ ] checks for existance of state in appdata/roaming/atomic/
+	
+
 * atomic watch -- user provides optional issue number to help track progress and on `atomic build, test, run or custom command` 
 	we would do a local atomic commit with issue name + command name + number
+
+	- [ ] get git info
+		- [ ] if not present in git branch, prompt user for details needed
+
+	- [ ] if watch is started without a init file, warn user
+	- [ ] 
 
 * atomic stop
 
