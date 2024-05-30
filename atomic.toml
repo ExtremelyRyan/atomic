@@ -37,5 +37,5 @@ check = "cargo check"
 clippy = "cargo clippy"
 
 # chain several custom commands together
-chain = ["build", "clippy"]
+chain = ["check", "clippy"]
 

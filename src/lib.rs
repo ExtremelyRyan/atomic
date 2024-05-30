@@ -11,26 +11,32 @@ pub(crate) use Error::*;
 // Alias Result to be the crate Result.
 pub(crate) type Result<T> = core::result::Result<T, error::Error>;
 
-fn send_command() {
-    use std::process::Command;
+use std::process::Command;
 
+fn send_command<'a>(command: &'a str) {
+    dbg!(&command);
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C", "whoami"])
+            .args(["/C", command])
             .output()
             .expect("failed to execute process")
     } else {
         Command::new("sh")
-            .arg("-c")
-            .arg("echo hello")
+            .args(["-c", command])
             .output()
             .expect("failed to execute process")
     };
 
     let hello = output.stdout;
+    let err = output.stderr;
 
     let out = String::from_utf8(hello).unwrap();
-    println!("{}", out);
+    println!("stdout: \n{}", out);
+
+    if !err.is_empty() {
+        let err_out = String::from_utf8(err).unwrap();
+        println!("stderr: \n{}", err_out);
+    }
 }
 const _SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
 

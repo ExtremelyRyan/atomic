@@ -6,6 +6,8 @@ use std::{
 use clap::Command;
 use toml::Value;
 
+use crate::send_command;
+
 fn cli() -> Command {
     Command::new("atomic")
         .about("auto local commit while testing without having to think about it")
@@ -57,17 +59,20 @@ fn start_init() {
     let (table_name, value) =
         find_key_in_tables(parsed_toml.clone(), "chain").unwrap_or((String::new(), None));
 
-    let sub_values = value.unwrap().as_array();
+    // blank default value so it is safe to unwrap
+    let def = Value::Array(vec![String::from("").into()]);
+    let binding = value.unwrap_or(def);
+    let sub_values = binding.as_array().unwrap();
 
-    // if let Some(sub_values) = value.as_array() {
-    //     sub_values.into_iter().for_each(|v| {
-    //         if let Some((_inner_table_name, Some(inner_value))) =
-    //             find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
-    //         {
-    //             println!("inner_inner value: {}", inner_value);
-    //         }
-    //     });
-    // }
+    sub_values.into_iter().for_each(|v| {
+        if let Some((_inner_table_name, Some(inner_value))) =
+            find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
+        {
+            println!("inner_inner value: {}", inner_value);
+
+            send_command(&inner_value.as_str().unwrap_or_default());
+        }
+    });
 }
 
 fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
