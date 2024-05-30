@@ -1,58 +1,18 @@
-use std::{fs::OpenOptions, io::Read};
+use std::{
+    fs::{self, OpenOptions},
+    path::Path,
+};
 
-use clap::{arg, value_parser, Command};
+use clap::Command;
 use toml::Value;
 
 fn cli() -> Command {
     Command::new("atomic")
         .about("auto local commit while testing without having to think about it")
         .allow_external_subcommands(true)
+        .arg_required_else_help(true)
         .subcommand(Command::new("init").about("initialize atomic template in project repository"))
-        .subcommand(
-            Command::new("watch")
-                .about("configure issue details for atomic commits")
-                // .arg(arg!([issue] "track issue number (u64)").value_parser(value_parser!(u64)))
-                // .arg_required_else_help(false)
-                // .arg(
-                //     arg!([desc] "brief description of problem").value_parser(value_parser!(String)),
-                // ),
-        )
-    // .subcommand(
-    //     Command::new("diff")
-    //         .about("Compare two commits")
-    //         .arg(arg!(base: [COMMIT]))
-    //         .arg(arg!(head: [COMMIT]))
-    //         .arg(arg!(path: [PATH]).last(true))
-    //         .arg(
-    //             arg!(--color <WHEN>)
-    //                 .value_parser(["always", "auto", "never"])
-    //                 .num_args(0..=1)
-    //                 .require_equals(true)
-    //                 .default_value("auto")
-    //                 .default_missing_value("always"),
-    //         ),
-    // )
-    // .subcommand(
-    //     Command::new("push")
-    //         .about("pushes things")
-    //         .arg(arg!(<REMOTE> "The remote to target"))
-    //         .arg_required_else_help(true),
-    // )
-    // .subcommand(
-    //     Command::new("add")
-    //         .about("adds things")
-    //         .arg_required_else_help(true)
-    //         .arg(arg!(<PATH> ... "Stuff to add").value_parser(clap::value_parser!(PathBuf))),
-    // )
-    // .subcommand(
-    //     Command::new("stash")
-    //         .args_conflicts_with_subcommands(true)
-    //         .flatten_help(true)
-    //         .args(push_args())
-    //         .subcommand(Command::new("push").args(push_args()))
-    //         .subcommand(Command::new("pop").arg(arg!([STASH])))
-    //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
-    // )
+        .subcommand(Command::new("watch").about("configure issue details for atomic commits"))
 }
 
 // fn push_args() -> Vec<clap::Arg> {
@@ -63,116 +23,89 @@ pub fn start_cli() {
     let matches = cli().get_matches();
 
     match matches.subcommand() {
-        Some(("init", sub_matches)) => {
+        Some(("init", _sub_matches)) => {
             start_init();
         }
-        // Some(("clone", sub_matches)) => {
-        //     println!(
-        //         "Cloning {}",
-        //         sub_matches.get_one::<String>("REMOTE").expect("required")
-        //     );
-        // }
-        // Some(("diff", sub_matches)) => {
-        //     let color = sub_matches
-        //         .get_one::<String>("color")
-        //         .map(|s| s.as_str())
-        //         .expect("defaulted in clap");
-
-        //     let mut base = sub_matches.get_one::<String>("base").map(|s| s.as_str());
-        //     let mut head = sub_matches.get_one::<String>("head").map(|s| s.as_str());
-        //     let mut path = sub_matches.get_one::<String>("path").map(|s| s.as_str());
-        //     if path.is_none() {
-        //         path = head;
-        //         head = None;
-        //         if path.is_none() {
-        //             path = base;
-        //             base = None;
-        //         }
-        //     }
-        //     let base = base.unwrap_or("stage");
-        //     let head = head.unwrap_or("worktree");
-        //     let path = path.unwrap_or("");
-        //     println!("Diffing {base}..{head} {path} (color={color})");
-        // }
-        // Some(("push", sub_matches)) => {
-        //     println!(
-        //         "Pushing to {}",
-        //         sub_matches.get_one::<String>("REMOTE").expect("required")
-        //     );
-        // }
-        // Some(("add", sub_matches)) => {
-        //     let paths = sub_matches
-        //         .get_many::<PathBuf>("PATH")
-        //         .into_iter()
-        //         .flatten()
-        //         .collect::<Vec<_>>();
-        //     println!("Adding {paths:?}");
-        // }
-        // Some(("stash", sub_matches)) => {
-        //     let stash_command = sub_matches.subcommand().unwrap_or(("push", sub_matches));
-        //     match stash_command {
-        //         ("apply", sub_matches) => {
-        //             let stash = sub_matches.get_one::<String>("STASH");
-        //             println!("Applying {stash:?}");
-        // Some(_) => todo!(),
-        // None => todo!(),
-        //         }
-        //         ("pop", sub_matches) => {
-        //             let stash = sub_matches.get_one::<String>("STASH");
-        //             println!("Popping {stash:?}");
-        //         }
-        //         ("push", sub_matches) => {
-        //             let message = sub_matches.get_one::<String>("message");
-        //             println!("Pushing {message:?}");
-        //         }
-        //         (name, _) => {
-        //             unreachable!("Unsupported subcommand `{name}`")
-        //         }
-        //     }
-        // }
-        // Some((ext, sub_matches)) => {
-        //     let args = sub_matches
-        //         .get_many::<OsString>("")
-        //         .into_iter()
-        //         .flatten()
-        //         .collect::<Vec<_>>();
-        //     println!("Calling out to {ext:?} with {args:?}");
-        _ => (), // If all subcommands are defined above, anything else is unreachable!()
+        _ => println!("got {:?}", matches),
     }
 }
 
+/// init should simply check to make sure a project folder has a atomic file created in the root.
 fn start_init() {
-    // check for atomic file, and if does not exist, create.
-    let mut atomic = if let Ok(atomic_file) = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open("atomic.toml")
-    {
-        debug_assert!(&atomic_file.metadata().unwrap().is_file());
-        atomic_file
-    } else {
-        eprintln!("error creating atomic file");
-        return;
-    };
+    let atomic = "atomic.toml";
 
-    let mut contents = String::new();
+    // if our atomic file does not exist, we create one from a template.
+    if let Err(_) = fs::metadata(atomic) {
+        if let Ok(_created_file) = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(atomic)
+        {
+            // todo: write template to file here
+        }
+    }
 
-    atomic.read_to_string(&mut contents).unwrap();
+    // read in atomic file and parse it out
 
     // Deserialize the TOML data into a generic data structure
-    let parsed_toml = toml::from_str::<Value>(&contents).expect("Unable to parse TOML");
+    let parsed_toml = get_toml_content(atomic);
+    // parse_toml_value(parsed_toml.clone());
 
-    let passed_cmd = "run";
+    // let res = table_lookup(&parsed_toml, "custom", "chain");
 
+    let (table_name, value) =
+        find_key_in_tables(parsed_toml.clone(), "chain").unwrap_or((String::new(), None));
+
+    let sub_values = value.unwrap().as_array();
+
+    // if let Some(sub_values) = value.as_array() {
+    //     sub_values.into_iter().for_each(|v| {
+    //         if let Some((_inner_table_name, Some(inner_value))) =
+    //             find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
+    //         {
+    //             println!("inner_inner value: {}", inner_value);
+    //         }
+    //     });
+    // }
+}
+
+fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
+    if let Some(table) = parsed_toml.as_table() {
+        for (k, v) in table {
+            // println!("Found key '{}'; value: '{}'", k, v);
+            if let Some(inner_table) = v.as_table() {
+                if inner_table.contains_key(key) {
+                    // println!(
+                    // "The TOML value contains the key {key}\nv {:?}",
+                    // inner_table.get(key)
+                    // );
+                    return Some((k.clone(), inner_table.get(key).cloned()));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn get_toml_content<P>(atomic: P) -> Value
+where
+    P: AsRef<Path>,
+{
+    let contents = fs::read_to_string(atomic.as_ref()).expect("Unable to read atomic file");
+    toml::from_str(&contents).expect("Unable to read atomic file")
+}
+
+#[allow(dead_code)]
+fn test_parse_toml_value(parsed_toml: Value) {
     // Extract items from the TOML value
     match parsed_toml {
-        toml::Value::Table(table) => {
+        Value::Table(table) => {
             // Iterate over key-value pairs in the table
             for (key, value) in &table {
-                if key.eq(passed_cmd) {
-                    println!("found {}, v: {}", key, value);
-                }
+                // if key.eq(passed_cmd) {
+                println!("found {}, v: {}", key, value);
+                // }
             }
         }
         Value::Array(array) => {
@@ -197,4 +130,19 @@ fn start_init() {
             println!("Other type of value: {:?}", parsed_toml);
         }
     }
+}
+
+fn table_lookup<'a>(value: &'a Value, table_name: &str, key: &str) -> Option<&'a Value> {
+    // Check if the value is a table
+    if let Value::Table(table) = value {
+        // Check if the specified table exists
+        if let Some(table_value) = table.get(table_name) {
+            // Check if the table value is indeed a table
+            if let Value::Table(inner_table) = table_value {
+                // Lookup the key within the table
+                return inner_table.get(key);
+            }
+        }
+    }
+    None
 }

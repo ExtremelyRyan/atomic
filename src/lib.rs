@@ -2,8 +2,8 @@ use error::Error;
 use git2::Repository;
 use std::env;
 
-mod clap;
-mod error;
+pub mod clap;
+pub mod error;
 
 // Re-export the crate Error.
 pub(crate) use Error::*;
@@ -32,9 +32,9 @@ fn send_command() {
     let out = String::from_utf8(hello).unwrap();
     println!("{}", out);
 }
-const SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
+const _SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
 
-pub fn get_git_info() -> Result<()> {
+pub fn get_git_info() -> Result<(String, String, u64)> {
     // Get the current directory
     let current_dir = env::current_dir().expect("Failed to get current directory");
 
@@ -51,23 +51,23 @@ pub fn get_git_info() -> Result<()> {
         None => panic!("Failed to get current branch name"),
     };
 
-    let (feature, mut issue, mut description) = match parse_branch_name(branch_name)? {
+    let (feature, issue, description) = match parse_branch_name(branch_name)? {
         (Some(feature), None, None) => (feature, None, None),
         (Some(feature), Some(issue), None) => (feature, Some(issue), None),
         (Some(feature), Some(issue), Some(desc)) => (feature, Some(issue), Some(desc)),
         _ => ("".to_string(), None, None), // Using None for issue and desc since they are of type Option<String>
     };
 
-    let issue_num = match issue {
-        Some(s) if !s.is_empty() => s.parse::<u64>()?,
-        _ => u64::MAX,
-    };
     let desc = description.unwrap_or_default();
 
+    let issue_num = match issue.unwrap_or_default().parse::<u64>() {
+        Ok(num) => num,
+        Err(_) => 0,
+    };
     // Print the current branch and issue number
     dbg!(&feature, &issue_num, &desc);
 
-    Ok(())
+    Ok((feature, desc, issue_num))
 }
 
 /// Parses a Git branch name and extracts its components.
