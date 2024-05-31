@@ -2,7 +2,7 @@
 <h1 align="center">
   <a href="https://github.com/ExtremelyRyan/atomic">
     <!-- Please provide path to your logo here -->
-    <img src="docs/images/logo.svg" alt="Logo" width="100" height="100">
+    <img src=".media/atomic 2.png" alt="Logo" width=500px, height=500px>
   </a>
 </h1>
 
@@ -13,9 +13,7 @@
   <br />
   <br />
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
-  ·
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
-  .
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+">Ask a Question</a>
 </div>
 
@@ -23,77 +21,40 @@
 <br />
 
 [![Project license](https://img.shields.io/github/license/ExtremelyRyan/atomic.svg?style=flat-square)](LICENSE)
-
-[![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![code with love by ExtremelyRyan](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-ExtremelyRyan-ff1414.svg?style=flat-square)](https://github.com/ExtremelyRyan)
 
+<H3 align="center">this project is still in rapid development, and is prone to breaking changes on main.</H3>
 </div>
 
-<details open="open">
-<summary>Table of Contents</summary>
+## What's Atomic?
 
-- [About](#about)
-  - [Built With](#built-with)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-- [Roadmap](#roadmap)
-- [Support](#support)
-- [Project assistance](#project-assistance)
-- [Contributing](#contributing)
-- [Authors & contributors](#authors--contributors)
-- [Security](#security)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-
-</details>
-
----
-
-## About
-
-> **[?]**
-> Provide general information about your project here.
-> What problem does it (intend to) solve?
-> What is the purpose of your project?
-> Why did you undertake it?
-> You don't have to answer all the questions -- just the ones relevant to your project.
-
-<details>
-<summary>Screenshots</summary>
-<br>
-
-> **[?]**
-> Please provide your screenshots here.
-
-|                               Home Page                               |                               Login Page                               |
-| :-------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| <img src="docs/images/screenshot.png" title="Home Page" width="100%"> | <img src="docs/images/screenshot.png" title="Login Page" width="100%"> |
-
-</details>
+Atomic is a command-line tool designed to streamline the process of making "atomic" commits. It addresses the challenge of remembering to save frequent snapshots of your code without disrupting your workflow. By defining custom commands in an atomic.toml file located in your project's root directory, Atomic allows you to execute your desired actions while automatically creating local commit snapshots in Git. This ensures that your changes are captured efficiently and without interrupting your focus.
 
 ### Built With
 
-> Rust
+Rust, because I like it.Also with
+[clap](https://lib.rs/crates/clap),
+[git2](https://lib.rs/cratesgit2),
+[thiserror](https://lib.rs/crates/thiserror),
+[toml](https://lib.rs/crates/toml)
 
 ## Getting Started
 
 ### Prerequisites
 
-> **[?]**
-> What are the project requirements/dependencies?
+Rust MSRV: 1.74
+Windows 10/11
+not tested on linux (yet)
 
 ### Installation
 
 > **[?]**
-> Describe how to install and get started with the project.
+> TODO
 
 ## Usage
 
 > **[?]**
-> How does one go about using it?
-> Provide various use cases and code examples here.
+> TODO
 
 ## Roadmap
 
@@ -105,9 +66,6 @@ See the [open issues](https://github.com/ExtremelyRyan/atomic/issues) for a list
 
 ## Support
 
-> **[?]**
-> Provide additional ways to contact the project maintainer/maintainers.
-
 Reach out to the maintainer at one of the following places:
 
 - [GitHub issues](https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
@@ -115,42 +73,12 @@ Reach out to the maintainer at one of the following places:
 
 ## Project assistance
 
-If you want to say **thank you** or/and support active development of PROJECT_NAME:
+If you want to say **thank you** or/and support active development of Atomic:
 
 - Add a [GitHub Star](https://github.com/ExtremelyRyan/atomic) to the project.
-- Tweet about the PROJECT_NAME.
+- Tweet about the Atomic.
 - Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
-
-Together, we can make PROJECT_NAME **better**!
-
-## Contributing
-
-First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
-
-
-Please read [our contribution guidelines](docs/CONTRIBUTING.md), and thank you for being involved!
 
 ## Authors & contributors
 
-The original setup of this repository is by [FULL_NAME](https://github.com/GITHUB_USERNAME).
-
-For a full list of all authors and contributors, see [the contributors page](https://github.com/ExtremelyRyan/atomic/contributors).
-
-## Security
-
-PROJECT_NAME follows good practices of security, but 100% security cannot be assured.
-PROJECT_NAME is provided **"as is"** without any **warranty**. Use at your own risk.
-
-_For more information and to report security issues, please refer to our [security documentation](docs/SECURITY.md)._
-
-## License
-
-This project is licensed under the **MIT license**.
-
-See [LICENSE](LICENSE) for more information.
-
-## Acknowledgements
-
-> **[?]**
-> If your work was funded by any organization or institution, acknowledge their support here.
-> In addition, if your work relies on other software libraries, or was inspired by looking at other work, it is appropriate to acknowledge this intellectual debt too.
+The original setup of this repository is by [Ryan](https://github.com/ExtremelyRyan).

@@ -4,6 +4,7 @@ use std::env;
 
 pub mod clap;
 pub mod error;
+pub mod toml;
 
 // Re-export the crate Error.
 pub(crate) use Error::*;
@@ -70,7 +71,8 @@ pub fn get_git_info() -> Result<(String, String, u64)> {
         (Some(feature), None, None) => (feature, None, None),
         (Some(feature), Some(issue), None) => (feature, Some(issue), None),
         (Some(feature), Some(issue), Some(desc)) => (feature, Some(issue), Some(desc)),
-        _ => ("".to_string(), None, None), // Using None for issue and desc since they are of type Option<String>
+        (Some(feature), ..) => (feature, None, None),
+        _ => (String::from(""), None, None),
     };
 
     let desc = description.unwrap_or_default();

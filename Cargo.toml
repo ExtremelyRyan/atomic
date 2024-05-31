@@ -2,6 +2,11 @@
 name = "cargo-atomic"
 version = "0.1.0"
 edition = "2021"
+authors = ["Ryan "]
+
+[[bin]]
+name = "atomic"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,6 +15,3 @@ clap = "4.5.4"
 git2 = "0.18.3"
 thiserror = "1.0.60"
 toml = "0.8.12"
-winapi = "0.3"
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser"] }

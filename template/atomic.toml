@@ -16,7 +16,6 @@
 #    `cargo build || cargo clippy` -- if cargo build fails, runs cargo clippy.
 #
 
-
 # Notes:
 # if multiple key names are present, Atomic will default to the first found in the list.
 # names can be kebab (-) or snake(_) to provide more key name options
@@ -25,17 +24,13 @@
 # default commands
 [default]
 build = "echo build"
-test = "echo test"
-run = "echo run"
+test  = "echo test"
+run   = "echo run"
 
 # custom commands go here
 [custom]
-check = "cargo check"
+check  = "cargo check"
 clippy = "cargo clippy"
 
-# chain several custom commands together
-chain-check = ["check", "clippy", "cargo fmt"]
-
-
-[super.deep.tables.wow]
-wow = "echo WOW!"
+# chain several custom commands together, regardless if they are declared.
+chain = ["check", "clippy", "cargo fmt"]

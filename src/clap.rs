@@ -6,7 +6,10 @@ use std::{
 use clap::{arg, Command};
 use toml::Value;
 
-use crate::send_command;
+use crate::{
+    send_command,
+    toml::{find_key_in_tables, get_toml_content, get_toml_keys},
+};
 
 fn cli() -> Command {
     Command::new("atomic")
@@ -24,10 +27,6 @@ fn cli() -> Command {
         .subcommand(Command::new("list").about("shapshot code then run program"))
 }
 
-// fn push_args() -> Vec<clap::Arg> {
-//     vec![arg!(-m --message <MESSAGE>)]
-// }
-
 pub fn start_cli() {
     let matches = cli().get_matches();
 
@@ -43,7 +42,10 @@ pub fn start_cli() {
         }
         Some(("list", _)) => {
             let atomic = get_toml_content("atomic.toml");
-            parse_toml_value(atomic);
+            let keys = get_toml_keys(atomic);
+            for k in keys {
+                println!("{k}");
+            }
         }
         Some(("build", _)) | Some(("test", _)) | Some(("run", _)) => {
             if let Some((name, _)) = matches.subcommand() {
@@ -98,117 +100,4 @@ fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
             // Handle other types of values if necessary
         }
     }
-}
-
-// fn run_command<P: AsRef<Path>>(cmd: &String, atomic: P) {
-//     // read in atomic file and parse it out
-
-//     // Deserialize the TOML data into a generic data structure
-//     let parsed_toml = get_toml_content(atomic);
-
-//     let (_, value) = find_key_in_tables(parsed_toml.clone(), cmd).unwrap_or((String::new(), None));
-
-//     // todo: find better output method than this
-
-//     let s = value
-//         .clone()
-//         .and_then(|v| Some(v.clone().as_str().unwrap_or("").to_string()))
-//         .unwrap()
-//         .clone();
-
-//     // is a string, not array | table
-//     if !s.is_empty() {
-//         send_command(&s);
-//         return;
-//     }
-
-//     // blank default value so it is safe to unwrap
-//     let binding = value.unwrap_or_else(|| Value::Array(vec![]));
-
-//     let sub_values = binding.as_array().unwrap();
-
-//     debug_assert!(!sub_values.is_empty());
-
-//     sub_values.into_iter().for_each(|v| {
-//         // if we find the value is another key within the file - run that keys commands
-//         if let Some((_inner_table_name, Some(inner_value))) =
-//             find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
-//         {
-//             // println!("inner_inner value: {}", inner_value);
-//             send_command(&inner_value.as_str().unwrap_or_default());
-//         } else {
-//             // otherwise run the value directly
-//             send_command(v.as_str().unwrap_or_default());
-//         }
-//     });
-// }
-
-fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
-    if let Some(table) = parsed_toml.as_table() {
-        for (k, v) in table {
-            if let Some(inner_table) = v.as_table() {
-                if inner_table.contains_key(key) {
-                    return Some((k.clone(), inner_table.get(key).cloned()));
-                }
-            }
-        }
-    }
-    None
-}
-
-fn get_toml_content<P>(atomic: P) -> Value
-where
-    P: AsRef<Path>,
-{
-    let contents = fs::read_to_string(atomic.as_ref()).expect("Unable to read atomic file");
-    toml::from_str(&contents).expect("Unable to read atomic file")
-}
-
-#[allow(dead_code)]
-fn parse_toml_value(parsed_toml: Value) {
-    // Extract items from the TOML value
-    match parsed_toml {
-        Value::Table(table) => {
-            // Iterate over key-value pairs in the table
-            for (key, value) in &table {
-                println!("{} : {}", key, value);
-            }
-        }
-        Value::Array(array) => {
-            // Iterate over items in the array
-            for item in array {
-                print!(" {}, ", item.to_string());
-            }
-        }
-        Value::String(string_val) => {
-            println!("{}", string_val);
-        }
-        Value::Integer(int_val) => {
-            println!("Integer value: {}", int_val);
-        }
-        Value::Float(float_val) => {
-            println!("Float value: {}", float_val);
-        }
-        Value::Boolean(bool_val) => {
-            println!("Boolean value: {}", bool_val);
-        }
-        _ => {
-            println!("Other type of value: {:?}", parsed_toml);
-        }
-    }
-}
-
-fn table_lookup<'a>(value: &'a Value, table_name: &str, key: &str) -> Option<&'a Value> {
-    // Check if the value is a table
-    if let Value::Table(table) = value {
-        // Check if the specified table exists
-        if let Some(table_value) = table.get(table_name) {
-            // Check if the table value is indeed a table
-            if let Value::Table(inner_table) = table_value {
-                // Lookup the key within the table
-                return inner_table.get(key);
-            }
-        }
-    }
-    None
 }
