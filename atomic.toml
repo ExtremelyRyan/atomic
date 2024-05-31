@@ -1,8 +1,0 @@
-
-build = "cargo build"
-test = "cargo test"
-run = "cargo run"
-
-# custom commands go here
-check = "cargo check"
-clippy = "cargo clippy"

@@ -1,194 +1,103 @@
-use std::{fs::OpenOptions, io::Read, path::Path};
+use std::{
+    fs::{self, OpenOptions},
+    path::Path,
+};
 
 use clap::{arg, Command};
 use toml::Value;
 
+use crate::{
+    send_command,
+    toml::{find_key_in_tables, get_toml_content, get_toml_keys},
+};
+
 fn cli() -> Command {
     Command::new("atomic")
-        .about("auto local commit while testing without having to think about it.")
-        .subcommand_required(true)
+        .about("auto local commit while testing without having to think about it")
         .arg_required_else_help(true)
-        .allow_external_subcommands(true)
+        .subcommand(
+            Command::new("custom")
+                .about("run command listed in atomic.toml")
+                .arg(arg!(<COMMAND> "custom command in atomic.toml")),
+        )
         .subcommand(Command::new("init").about("initialize atomic template in project repository"))
-    // .subcommand(
-    //     Command::new("diff")
-    //         .about("Compare two commits")
-    //         .arg(arg!(base: [COMMIT]))
-    //         .arg(arg!(head: [COMMIT]))
-    //         .arg(arg!(path: [PATH]).last(true))
-    //         .arg(
-    //             arg!(--color <WHEN>)
-    //                 .value_parser(["always", "auto", "never"])
-    //                 .num_args(0..=1)
-    //                 .require_equals(true)
-    //                 .default_value("auto")
-    //                 .default_missing_value("always"),
-    //         ),
-    // )
-    // .subcommand(
-    //     Command::new("push")
-    //         .about("pushes things")
-    //         .arg(arg!(<REMOTE> "The remote to target"))
-    //         .arg_required_else_help(true),
-    // )
-    // .subcommand(
-    //     Command::new("add")
-    //         .about("adds things")
-    //         .arg_required_else_help(true)
-    //         .arg(arg!(<PATH> ... "Stuff to add").value_parser(clap::value_parser!(PathBuf))),
-    // )
-    // .subcommand(
-    //     Command::new("stash")
-    //         .args_conflicts_with_subcommands(true)
-    //         .flatten_help(true)
-    //         .args(push_args())
-    //         .subcommand(Command::new("push").args(push_args()))
-    //         .subcommand(Command::new("pop").arg(arg!([STASH])))
-    //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
-    // )
-}
-
-fn push_args() -> Vec<clap::Arg> {
-    vec![arg!(-m --message <MESSAGE>)]
+        .subcommand(Command::new("build").about("snapshot code then execute build command(s)"))
+        .subcommand(Command::new("test").about("shapshot code then perform tests"))
+        .subcommand(Command::new("run").about("shapshot code then run program"))
+        .subcommand(Command::new("list").about("shapshot code then run program"))
 }
 
 pub fn start_cli() {
     let matches = cli().get_matches();
 
     match matches.subcommand() {
-        Some(("init", sub_matches)) => {
+        Some(("init", _sub_matches)) => {
             start_init();
         }
-        None => todo!(),
-        // Some(("clone", sub_matches)) => {
-        //     println!(
-        //         "Cloning {}",
-        //         sub_matches.get_one::<String>("REMOTE").expect("required")
-        //     );
-        // }
-        // Some(("diff", sub_matches)) => {
-        //     let color = sub_matches
-        //         .get_one::<String>("color")
-        //         .map(|s| s.as_str())
-        //         .expect("defaulted in clap");
+        Some(("custom", sub_matches)) => {
+            let cmd = sub_matches
+                .get_one::<String>("COMMAND")
+                .expect("command is required.");
+            run_command(cmd, "atomic.toml");
+        }
+        Some(("list", _)) => {
+            let atomic = get_toml_content("atomic.toml");
+            let keys = get_toml_keys(atomic);
+            for k in keys {
+                println!("{k}");
+            }
+        }
+        Some(("build", _)) | Some(("test", _)) | Some(("run", _)) => {
+            if let Some((name, _)) = matches.subcommand() {
+                run_command(name, "atomic.toml");
+            }
+        }
 
-        //     let mut base = sub_matches.get_one::<String>("base").map(|s| s.as_str());
-        //     let mut head = sub_matches.get_one::<String>("head").map(|s| s.as_str());
-        //     let mut path = sub_matches.get_one::<String>("path").map(|s| s.as_str());
-        //     if path.is_none() {
-        //         path = head;
-        //         head = None;
-        //         if path.is_none() {
-        //             path = base;
-        //             base = None;
-        //         }
-        //     }
-        //     let base = base.unwrap_or("stage");
-        //     let head = head.unwrap_or("worktree");
-        //     let path = path.unwrap_or("");
-        //     println!("Diffing {base}..{head} {path} (color={color})");
-        // }
-        // Some(("push", sub_matches)) => {
-        //     println!(
-        //         "Pushing to {}",
-        //         sub_matches.get_one::<String>("REMOTE").expect("required")
-        //     );
-        // }
-        // Some(("add", sub_matches)) => {
-        //     let paths = sub_matches
-        //         .get_many::<PathBuf>("PATH")
-        //         .into_iter()
-        //         .flatten()
-        //         .collect::<Vec<_>>();
-        //     println!("Adding {paths:?}");
-        // }
-        // Some(("stash", sub_matches)) => {
-        //     let stash_command = sub_matches.subcommand().unwrap_or(("push", sub_matches));
-        //     match stash_command {
-        //         ("apply", sub_matches) => {
-        //             let stash = sub_matches.get_one::<String>("STASH");
-        //             println!("Applying {stash:?}");
-        // Some(_) => todo!(),
-        // None => todo!(),
-        //         }
-        //         ("pop", sub_matches) => {
-        //             let stash = sub_matches.get_one::<String>("STASH");
-        //             println!("Popping {stash:?}");
-        //         }
-        //         ("push", sub_matches) => {
-        //             let message = sub_matches.get_one::<String>("message");
-        //             println!("Pushing {message:?}");
-        //         }
-        //         (name, _) => {
-        //             unreachable!("Unsupported subcommand `{name}`")
-        //         }
-        //     }
-        // }
-        // Some((ext, sub_matches)) => {
-        //     let args = sub_matches
-        //         .get_many::<OsString>("")
-        //         .into_iter()
-        //         .flatten()
-        //         .collect::<Vec<_>>();
-        //     println!("Calling out to {ext:?} with {args:?}");
-        _ => unreachable!(), // If all subcommands are defined above, anything else is unreachable!()
+        _ => println!("got {:?}", matches),
     }
 }
 
+/// init should simply check to make sure a project folder has a atomic file created in the root.
 fn start_init() {
-    // check for atomic file, and if does not exist, create.
-    let mut atomic = if let Ok(atomic_file) = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open("atomic.toml")
-    {
-        debug_assert!(&atomic_file.metadata().unwrap().is_file());
-        atomic_file
-    } else {
-        eprintln!("error creating atomic file");
-        return;
-    };
+    let atomic = "atomic.toml";
 
-    let mut contents = String::new();
+    // if our atomic file does not exist, we create one from a template.
+    if let Err(_) = fs::metadata(atomic) {
+        if let Ok(_created_file) = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(atomic)
+        {
+            // todo: write template to file here
+        }
+    }
+}
 
-    atomic.read_to_string(&mut contents).unwrap();
+fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
+    // read in atomic file and parse it out
+    let parsed_toml = get_toml_content(atomic);
 
-    // Deserialize the TOML data into a generic data structure
-    let parsed_toml = toml::from_str::<Value>(&contents).expect("Unable to parse TOML");
+    let (_, value) = find_key_in_tables(parsed_toml.clone(), cmd).unwrap_or((String::new(), None));
 
-    let passed_cmd = "run";
+    match value {
+        Some(Value::String(s)) => send_command(&s),
 
-    // Extract items from the TOML value
-    match parsed_toml {
-        toml::Value::Table(table) => {
-            // Iterate over key-value pairs in the table
-            for (key, value) in &table {
-                if key.eq(passed_cmd) {
-                    println!("found {}, v: {}", key, value);
-                }
+        Some(Value::Array(sub_values)) => {
+            assert!(!sub_values.is_empty(), "Array of sub-values is empty");
+
+            for v in sub_values {
+                // dbg!(&v);
+                let inner_value = match find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
+                {
+                    Some((_, Some(inner_value))) => inner_value,
+                    _ => v.clone(),
+                };
+                send_command(&inner_value.as_str().unwrap_or_default());
             }
-        }
-        Value::Array(array) => {
-            // Iterate over items in the array
-            for item in array {
-                println!("Array item: {:?}", item);
-            }
-        }
-        Value::String(string_val) => {
-            println!("String value: {}", string_val);
-        }
-        Value::Integer(int_val) => {
-            println!("Integer value: {}", int_val);
-        }
-        Value::Float(float_val) => {
-            println!("Float value: {}", float_val);
-        }
-        Value::Boolean(bool_val) => {
-            println!("Boolean value: {}", bool_val);
         }
         _ => {
-            println!("Other type of value: {:?}", parsed_toml);
+            // Handle other types of values if necessary
         }
     }
 }
