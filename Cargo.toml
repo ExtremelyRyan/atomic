@@ -2,13 +2,21 @@
 name = "cargo-atomic"
 version = "0.1.0"
 edition = "2021"
-authors = ["Ryan "]
+authors = ["Ryan"]
+description = "A CLI tool to help make local git commits easier."
+repository = "https://github.com/ExtremelyRyan/atomic"
+license = "MIT"
+readme = "readme.md"
+keywords = ["cli", "git"]
+categories = ["command-line-utilities", "development-tools::cargo-plugins"]
 
 [[bin]]
 name = "atomic"
 path = "src/main.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "cargo-atomic"
+path = "src/main.rs"
 
 [dependencies]
 clap = "4.5.4"
