@@ -53,8 +53,48 @@ not tested on linux (yet)
 
 ## Usage
 
-> **[?]**
-> TODO
+### Default Commands
+**[!]** all commands are modifiable from the project root `atomic.toml` file.
+
+- For setting up a new project simply run `atomic init` in your project root directory, which will create a 
+`atomic.toml` file with some defaults (for rust commands), as well as a few examples.
+
+the following commands are considered the "default" that will apply to most projects. 
+
+- `atomic run` 
+- `atomic test` 
+- `atomic build` 
+
+this is how they appear in the toml file
+```toml
+# default commands
+[default]
+build = "echo build"
+test  = "echo test"
+run   = "echo run"
+```
+
+### Custom Commands
+custom commands are for everything else you need to do that you **also want a local git commit to happen.**
+
+examples from the template file
+```toml
+# custom commands go here
+[custom]
+check      = "cargo check"
+check      = "echo check2"
+clippy     = "cargo clippy"
+clippy_max = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
+doc        = "cargo doc --no-deps --document-private-items --all-features --workspace"
+test-all   = "cargo test --all-features --workspace"
+
+# chain several custom commands together, regardless if they are declared.
+chain = ["check", "clippy", "cargo fmt"]
+```
+Note: if two keys are identical, atomic will default to execute the first command found.
+
+
+
 
 ## Roadmap
 

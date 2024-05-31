@@ -22,39 +22,6 @@ where
     toml::from_str(&contents).expect("Unable to read atomic file")
 }
 
-#[allow(dead_code)]
-pub fn parse_toml_value(parsed_toml: Value) {
-    // Extract items from the TOML value
-    match parsed_toml {
-        Value::Table(table) => {
-            // Iterate over key-value pairs in the table
-            for (_key, value) in &table {
-                println!("{:#?}", value.as_array());
-            }
-        }
-        Value::Array(array) => {
-            // Iterate over items in the array
-            for item in array {
-                print!(" {}, ", item.to_string());
-            }
-        }
-        Value::String(string_val) => {
-            println!("{}", string_val);
-        }
-        Value::Integer(int_val) => {
-            println!("Integer value: {}", int_val);
-        }
-        Value::Float(float_val) => {
-            println!("Float value: {}", float_val);
-        }
-        Value::Boolean(bool_val) => {
-            println!("Boolean value: {}", bool_val);
-        }
-        _ => {
-            println!("Other type of value: {:?}", parsed_toml);
-        }
-    }
-}
 
 /// Parses a TOML file and returns a vector of all the keys present in it.
 /// # Arguments

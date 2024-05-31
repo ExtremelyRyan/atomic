@@ -1,59 +1,42 @@
 use std::{
-    fs::{self, OpenOptions},
+    fs::{self, create_dir, OpenOptions},
     path::Path,
 };
 
 use clap::{arg, Command};
 use toml::Value;
 
-use crate::{
-    send_command,
-    toml::{find_key_in_tables, get_toml_content, get_toml_keys},
-};
+use crate::git::send_command;
+use crate::toml::{find_key_in_tables, get_toml_content, get_toml_keys};
 
 fn cli() -> Command {
     Command::new("atomic")
-        .about("auto local commit while testing without having to think about it")
+        .about("run custom commands that perform git actions, so you dont have to.")
+        .arg(arg!(-l --list "list all commands found in project atomic.toml").exclusive(true))
+        .arg(arg!(-i --init "initialize atomic template in project repository").exclusive(true))
+        .arg(arg!([CMD] "run command listed in projects atomic.toml").exclusive(true))
         .arg_required_else_help(true)
-        .subcommand(
-            Command::new("custom")
-                .about("run command listed in atomic.toml")
-                .arg(arg!(<COMMAND> "custom command in atomic.toml")),
-        )
-        .subcommand(Command::new("init").about("initialize atomic template in project repository"))
-        .subcommand(Command::new("build").about("snapshot code then execute build command(s)"))
-        .subcommand(Command::new("test").about("shapshot code then perform tests"))
-        .subcommand(Command::new("run").about("shapshot code then run program"))
-        .subcommand(Command::new("list").about("shapshot code then run program"))
 }
 
 pub fn start_cli() {
     let matches = cli().get_matches();
 
-    match matches.subcommand() {
-        Some(("init", _sub_matches)) => {
-            start_init();
+    if matches.get_one::<bool>("list").is_some_and(|b| b.to_owned() == true) {
+        let atomic = get_toml_content("atomic.toml");
+        let keys = get_toml_keys(atomic);
+        for k in keys {
+            println!("{k}");
         }
-        Some(("custom", sub_matches)) => {
-            let cmd = sub_matches
-                .get_one::<String>("COMMAND")
-                .expect("command is required.");
-            run_command(cmd, "atomic.toml");
-        }
-        Some(("list", _)) => {
-            let atomic = get_toml_content("atomic.toml");
-            let keys = get_toml_keys(atomic);
-            for k in keys {
-                println!("{k}");
-            }
-        }
-        Some(("build", _)) | Some(("test", _)) | Some(("run", _)) => {
-            if let Some((name, _)) = matches.subcommand() {
-                run_command(name, "atomic.toml");
-            }
-        }
+    }
+    else if matches.get_one::<bool>("init").is_some_and(|b| b.to_owned() == true) {
+        start_init();
+    }
+    else {
+        if let Some(cmd) = matches.get_one::<String>("CMD") {
+        dbg!("cmd");
+        run_command(cmd, "atomic.toml");
+    } 
 
-        _ => println!("got {:?}", matches),
     }
 }
 

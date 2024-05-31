@@ -1,20 +1,11 @@
-use error::Error;
+
 use git2::Repository;
 use std::env;
-
-pub mod clap;
-pub mod error;
-pub mod toml;
-
-// Re-export the crate Error.
-pub(crate) use Error::*;
-
-// Alias Result to be the crate Result.
-pub(crate) type Result<T> = core::result::Result<T, error::Error>;
-
 use std::process::Command;
+use crate::{Result, AtomicError::*};
 
-fn send_command<'a>(command: &'a str) {
+
+pub fn send_command<'a>(command: &'a str) {
     dbg!(&command);
     if command.is_empty() {
         println!("unknown or no command was found");
@@ -34,6 +25,7 @@ fn send_command<'a>(command: &'a str) {
 
     let out = output.stdout;
     let err = output.stderr;
+    dbg!(&out,&err);
 
     let out = String::from_utf8(out).unwrap();
 

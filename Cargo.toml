@@ -10,10 +10,14 @@ readme = "readme.md"
 keywords = ["cli", "git"]
 categories = ["command-line-utilities", "development-tools::cargo-plugins"]
 
+default-run = "atomic"
+
+# can be used by other languages
 [[bin]]
 name = "atomic"
 path = "src/main.rs"
 
+# can be used as a cargo add-on
 [[bin]]
 name = "cargo-atomic"
 path = "src/main.rs"
