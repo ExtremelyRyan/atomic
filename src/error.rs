@@ -11,4 +11,7 @@ pub enum Error {
 
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
+
+    #[error(transparent)]
+    GitError(#[from] git2::Error),
 }

@@ -15,6 +15,10 @@ use std::process::Command;
 
 fn send_command<'a>(command: &'a str) {
     dbg!(&command);
+    if command.is_empty() {
+        println!("unknown or no command was found");
+        return;
+    }
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args(["/C", command])
@@ -27,11 +31,16 @@ fn send_command<'a>(command: &'a str) {
             .expect("failed to execute process")
     };
 
-    let hello = output.stdout;
+    let out = output.stdout;
     let err = output.stderr;
 
-    let out = String::from_utf8(hello).unwrap();
-    println!("stdout: \n{}", out);
+    let out = String::from_utf8(out).unwrap();
+
+    // todo: find better output method than this
+
+    if !out.is_empty() {
+        println!("stdout: \n{}", out);
+    }
 
     if !err.is_empty() {
         let err_out = String::from_utf8(err).unwrap();
@@ -116,7 +125,6 @@ pub fn parse_branch_name(
         _ => Err(Static("too many parts in branch name, maximum 3.")),
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

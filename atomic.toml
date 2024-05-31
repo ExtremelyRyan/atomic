@@ -16,9 +16,6 @@
 #    `cargo build || cargo clippy` -- if cargo build fails, runs cargo clippy.
 #
 
-# Reserved Keywords - will not work | internal Atomic use only.
-# You can add other keywords you do NOT want to run here as well.
-reserved = ["watch", "stop"]
 
 # Notes:
 # if multiple key names are present, Atomic will default to the first found in the list.
@@ -27,9 +24,9 @@ reserved = ["watch", "stop"]
 
 # default commands
 [default]
-build = "cargo build"
-test = "cargo test"
-run = "cargo run"
+build = "echo build"
+test = "echo test"
+run = "echo run"
 
 # custom commands go here
 [custom]
@@ -37,5 +34,8 @@ check = "cargo check"
 clippy = "cargo clippy"
 
 # chain several custom commands together
-chain = ["check", "clippy"]
+chain-check = ["check", "clippy", "cargo fmt"]
 
+
+[super.deep.tables.wow]
+wow = "echo WOW!"
