@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, create_dir, OpenOptions},
+    fs::{self, OpenOptions},
     path::Path,
 };
 
@@ -21,22 +21,23 @@ fn cli() -> Command {
 pub fn start_cli() {
     let matches = cli().get_matches();
 
-    if matches.get_one::<bool>("list").is_some_and(|b| b.to_owned() == true) {
+    if matches
+        .get_one::<bool>("list")
+        .is_some_and(|b| b.to_owned() == true)
+    {
         let atomic = get_toml_content("atomic.toml");
         let keys = get_toml_keys(atomic);
         for k in keys {
             println!("{k}");
         }
-    }
-    else if matches.get_one::<bool>("init").is_some_and(|b| b.to_owned() == true) {
+    } else if matches
+        .get_one::<bool>("init")
+        .is_some_and(|b| b.to_owned() == true)
+    {
         start_init();
-    }
-    else {
-        if let Some(cmd) = matches.get_one::<String>("CMD") {
+    } else if let Some(cmd) = matches.get_one::<String>("CMD") {
         dbg!("cmd");
         run_command(cmd, "atomic.toml");
-    } 
-
     }
 }
 

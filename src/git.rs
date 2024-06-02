@@ -1,43 +1,33 @@
-
+use crate::{AtomicError::*, Result};
 use git2::Repository;
 use std::env;
-use std::process::Command;
-use crate::{Result, AtomicError::*};
-
+use std::process::{Command, Stdio};
 
 pub fn send_command<'a>(command: &'a str) {
-    dbg!(&command);
+    // dbg!(&command);
     if command.is_empty() {
         println!("unknown or no command was found");
         return;
     }
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-            .args(["/C", command])
-            .output()
-            .expect("failed to execute process")
+
+    let mut cmd = if cfg!(target_os = "windows") {
+        let mut c = Command::new("cmd");
+        c.args(["/C", command])
+            .env("FORCE_COLOR", "1")
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
+        c
     } else {
-        Command::new("sh")
-            .args(["-c", command])
-            .output()
-            .expect("failed to execute process")
+        let mut c = Command::new("sh");
+        c.args(["-c", command])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
+        c
     };
+    let status = cmd.status().expect("failed to execute process");
 
-    let out = output.stdout;
-    let err = output.stderr;
-    dbg!(&out,&err);
-
-    let out = String::from_utf8(out).unwrap();
-
-    // todo: find better output method than this
-
-    if !out.is_empty() {
-        println!("stdout: \n{}", out);
-    }
-
-    if !err.is_empty() {
-        let err_out = String::from_utf8(err).unwrap();
-        println!("stderr: \n{}", err_out);
+    if !status.success() {
+        eprintln!("Command failed with exit status: {}", status);
     }
 }
 const _SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
@@ -74,7 +64,7 @@ pub fn get_git_info() -> Result<(String, String, u64)> {
         Err(_) => 0,
     };
     // Print the current branch and issue number
-    dbg!(&feature, &issue_num, &desc);
+    // dbg!(&feature, &issue_num, &desc);
 
     Ok((feature, desc, issue_num))
 }
