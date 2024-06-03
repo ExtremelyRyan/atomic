@@ -14,12 +14,12 @@ pub fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Opti
     None
 }
 
-pub fn get_toml_content<P>(atomic: P) -> Value
+pub fn get_toml_content<P>(atomic: P) -> Option<Value>
 where
     P: AsRef<Path>,
 {
     let contents = read_to_string(atomic.as_ref()).expect("Unable to read atomic file");
-    toml::from_str(&contents).expect("Unable to read atomic file")
+    toml::from_str(&contents).ok()
 }
 
 

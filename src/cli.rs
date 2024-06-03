@@ -6,7 +6,7 @@ use std::{
 use clap::{arg, Command};
 use toml::Value;
 
-use crate::git::send_command;
+use crate::git::{commit_local_changes, send_command};
 use crate::toml::{find_key_in_tables, get_toml_content, get_toml_keys};
 
 fn cli() -> Command {
@@ -14,6 +14,7 @@ fn cli() -> Command {
         .about("run custom commands that perform git actions, so you dont have to.")
         .arg(arg!(-l --list "list all commands found in project atomic.toml").exclusive(true))
         .arg(arg!(-i --init "initialize atomic template in project repository").exclusive(true))
+        .arg(arg!(-t --test "tester").exclusive(true))
         .arg(arg!([CMD] "run command listed in projects atomic.toml").exclusive(true))
         .arg_required_else_help(true)
 }
@@ -21,23 +22,47 @@ fn cli() -> Command {
 pub fn start_cli() {
     let matches = cli().get_matches();
 
-    if matches
-        .get_one::<bool>("list")
-        .is_some_and(|b| b.to_owned() == true)
-    {
-        let atomic = get_toml_content("atomic.toml");
-        let keys = get_toml_keys(atomic);
-        for k in keys {
-            println!("{k}");
+    match (
+        matches.get_one::<bool>("list"),
+        matches.get_one::<bool>("init"),
+        matches.get_one::<bool>("test"),
+        matches.get_one::<String>("CMD"),
+    ) {
+        (Some(true), Some(false), Some(false), _) => {
+            list_keys();
         }
-    } else if matches
-        .get_one::<bool>("init")
-        .is_some_and(|b| b.to_owned() == true)
-    {
-        start_init();
-    } else if let Some(cmd) = matches.get_one::<String>("CMD") {
-        dbg!("cmd");
-        run_command(cmd, "atomic.toml");
+        (Some(false), Some(true), Some(false), _) => {
+            start_init();
+        }
+        (Some(false), Some(false), Some(true), _) => {
+            if let Err(err) = commit_local_changes() {
+                eprintln!("Error committing local changes: {}", err);
+            }
+        }
+        (Some(false), Some(false), Some(false), Some(cmd)) => {
+            run_command(cmd, "atomic.toml");
+        }
+        _ => {
+            // Handle invalid or no command provided
+            eprintln!("Invalid command or no command provided");
+            // You might want to print help text or show usage instructions here
+        }
+    }
+}
+
+fn list_keys() {
+    match get_toml_content("atomic.toml") {
+        Some(val) => {
+            let keys = get_toml_keys(val);
+            if !keys.is_empty() {
+                for k in keys {
+                    println!("{}", k);
+                }
+            } else {
+                eprintln!("Error reading atomic.toml");
+            }
+        }
+        _ => eprintln!("Error reading atomic.toml"),
     }
 }
 
@@ -60,7 +85,7 @@ fn start_init() {
 
 fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
     // read in atomic file and parse it out
-    let parsed_toml = get_toml_content(atomic);
+    let parsed_toml = get_toml_content(atomic).unwrap();
 
     let (_, value) = find_key_in_tables(parsed_toml.clone(), cmd).unwrap_or((String::new(), None));
 
