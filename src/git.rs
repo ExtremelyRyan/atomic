@@ -13,7 +13,6 @@ pub fn send_command<'a>(command: &'a str) {
     let mut cmd = if cfg!(target_os = "windows") {
         let mut c = Command::new("cmd");
         c.args(["/C", command])
-            .env("FORCE_COLOR", "1")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
         c
