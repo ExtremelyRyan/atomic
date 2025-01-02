@@ -2,15 +2,29 @@ use std::{fs::read_to_string, path::Path};
 use toml::Value;
 
 pub fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
+    // Directly check if the key exists at the root level
     if let Some(table) = parsed_toml.as_table() {
+        if table.contains_key(key) {
+            return Some((key.to_string(), table.get(key).cloned()));
+        }
+
+        // Search nested tables, e.g., "custom"
         for (k, v) in table {
-            if let Some(inner_table) = v.as_table() {
+            if let Value::Table(inner_table) = v {
                 if inner_table.contains_key(key) {
                     return Some((k.clone(), inner_table.get(key).cloned()));
                 }
             }
         }
+
+        // Explicitly check "custom" table if it exists
+        if let Some(Value::Table(custom_table)) = table.get("custom") {
+            if let Some(value) = custom_table.get(key) {
+                return Some(("custom".to_string(), Some(value.clone())));
+            }
+        }
     }
+
     None
 }
 
@@ -21,7 +35,6 @@ where
     let contents = read_to_string(atomic.as_ref()).expect("Unable to read atomic file");
     toml::from_str(&contents).ok()
 }
-
 
 /// Parses a TOML file and returns a vector of all the keys present in it.
 /// # Arguments
@@ -53,7 +66,7 @@ fn collect_keys(prefix: &str, value: &Value, keys: &mut Vec<String>) {
                 let new_prefix = if prefix.is_empty() {
                     key.clone()
                 } else {
-                    format!("{}", key)
+                    key.to_string()
                 };
                 collect_keys(&new_prefix, val, keys);
             }
@@ -64,16 +77,13 @@ fn collect_keys(prefix: &str, value: &Value, keys: &mut Vec<String>) {
     }
 }
 
-pub fn table_lookup<'a>(value: &'a Value, table_name: &str, key: &str) -> Option<&'a Value> {
+pub fn _table_lookup<'a>(value: &'a Value, table_name: &str, key: &str) -> Option<&'a Value> {
     // Check if the value is a table
     if let Value::Table(table) = value {
         // Check if the specified table exists
-        if let Some(table_value) = table.get(table_name) {
-            // Check if the table value is indeed a table
-            if let Value::Table(inner_table) = table_value {
-                // Lookup the key within the table
-                return inner_table.get(key);
-            }
+        if let Some(Value::Table(inner_table)) = table.get(table_name) {
+            // Lookup the key within the table
+            return inner_table.get(key);
         }
     }
     None

@@ -1,37 +1,61 @@
-use crate::{AtomicError::*, Result};
+use crate::{AtomicError, Result};
 use git2::{Repository, Signature};
 use std::env;
 use std::process::{Command, Stdio};
 
-pub fn send_command<'a>(command: &'a str) {
-    // dbg!(&command);
-    if command.is_empty() {
-        println!("unknown or no command was found");
+const _SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
+
+pub fn send_command(cmd: &str) {
+    #[cfg(debug_assertions)]
+    dbg!(cmd);
+
+    // Handle empty or invalid commands
+    if cmd.trim().is_empty() {
+        println!("No command provided or unknown command.");
         return;
     }
 
-    let mut cmd = if cfg!(target_os = "windows") {
+    // Normalize quotes for Windows compatibility
+    #[cfg(target_os = "windows")]
+    let cmd = cmd.replace('\'', "\""); // Replace single quotes with double quotes
+
+    // println!("Running command: {}", cmd);
+
+    // Build the command based on the OS
+    let mut process = if cfg!(target_os = "windows") {
         let mut c = Command::new("cmd");
-        c.args(["/C", command])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
+        c.args(["/C", &cmd]) // Use /C for Windows
+            .stdout(Stdio::inherit()) // Inherit stdout
+            .stderr(Stdio::inherit()); // Inherit stderr
         c
     } else {
         let mut c = Command::new("sh");
-        c.args(["-c", command])
+        c.args(["-c", &cmd]) // Use -c for Unix-like systems
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
         c
     };
-    let status = cmd.status().expect("failed to execute process");
 
-    if !status.success() {
-        eprintln!("Command failed with exit status: {}", status);
+    // Execute the command and handle results
+    match process.output() {
+        Ok(output) => {
+            // Check for success or failure status
+            if !output.status.success() {
+                eprintln!(
+                    "Command failed with status code: {}",
+                    output.status.code().unwrap_or(-1)
+                );
+            }
+        }
+        Err(err) => {
+            // Handle execution errors
+            eprintln!("Failed to execute command: {}\nError: {}", cmd, err);
+        }
     }
 }
-const _SEPERATORS: [char; 4] = ['-', ' ', ':', '_'];
 
-pub fn get_git_info() -> Result<(String, String, u64)> {
+
+pub fn _get_git_info() -> Result<(String, String, u64)> {
     // Get the current directory
     let current_dir = env::current_dir().expect("Failed to get current directory");
 
@@ -42,31 +66,26 @@ pub fn get_git_info() -> Result<(String, String, u64)> {
     let head = repo.head().expect("Failed to get HEAD reference");
     let branch_name = match head.shorthand() {
         Some(name) => name,
-        None => panic!("Failed to get current branch name"),
+        None => return Err(AtomicError::Static("Failed to get current branch name")),
     };
 
-    let (feature, issue, description) = match parse_branch_name(branch_name)? {
-        (Some(feature), None, None) => (feature, None, None),
-        (Some(feature), Some(issue), None) => (feature, Some(issue), None),
-        (Some(feature), Some(issue), Some(desc)) => (feature, Some(issue), Some(desc)),
-        (Some(feature), ..) => (feature, None, None),
-        _ => (String::from(""), None, None),
-    };
+    // Parse branch name into parts
+    let parts = parse_branch_name(branch_name)?; // Updated to handle Vec<String>
 
-    let desc = description.unwrap_or_default();
+    // Extract parts safely
+    let feature = parts.get(0).cloned().unwrap_or_default(); // First part as feature
+    let issue = parts.get(1).cloned().unwrap_or_default();   // Second part as issue number
+    let desc = parts.get(2..).map(|rest| rest.join("-")).unwrap_or_default(); // Remaining parts as description
 
-    let issue_num = match issue.unwrap_or_default().parse::<u64>() {
-        Ok(num) => num,
-        Err(_) => 0,
-    };
-    // Print the current branch and issue number
-    // dbg!(&feature, &issue_num, &desc);
+    // Parse issue number safely
+    let issue_num = issue.parse::<u64>().unwrap_or(0);
 
+    // Return feature, description, and issue number
     Ok((feature, desc, issue_num))
 }
 
-pub fn commit_local_changes() -> Result<()> {
 
+pub fn commit_local_changes() -> Result<()> {
     let repo = Repository::open(".")?;
 
     let mut index = repo.index()?;
@@ -76,7 +95,6 @@ pub fn commit_local_changes() -> Result<()> {
 
     let repo_reference = repo.head()?.resolve()?;
     let branch = repo_reference.name().expect("No HEAD exists");
-
 
     // Get the current user information from the Git configuration
     let config = repo.config()?;
@@ -90,79 +108,87 @@ pub fn commit_local_changes() -> Result<()> {
     let tree_id = index.write_tree()?;
     let tree = repo.find_tree(tree_id)?;
     let parent_commit = repo.find_commit(repo.head()?.peel_to_commit()?.id())?;
-    repo.commit(
-        Some(branch),
-        &user,
-        &user,
-        "test",
-        &tree,
-        &[&parent_commit],
-    )?;
+    repo.commit(Some(branch), &user, &user, "test", &tree, &[&parent_commit])?;
 
     Ok(())
 }
-/// Parses a Git branch name and extracts its components.
-///
-/// # Arguments
-///
-/// * `branch_name` - The name of the Git branch.
-///
-/// # Example
-/// ```
-/// use std::error::Error;
-/// # use cargo_atomic::parse_branch_name;
-///
-/// fn main() -> Result<(), Box<dyn Error>> {
-///     let branch_name = "feature-144-adding_dark_mode";
-///     let (feature, issue, description) = parse_branch_name(branch_name)?;
-///     assert_eq!(Some("feature".to_string()), feature);
-///     assert_eq!(Some("144".to_string()), issue);
-///     assert_eq!(Some("adding_dark_mode".to_string()), description);
-///     Ok(())
-/// }
-/// ```
-///
-/// # Returns
-///
-/// Returns a tuple containing the feature name, issue number, and description of the branch,
-/// wrapped in a `Result`. If the branch name contains too many parts, an error is returned.
-pub fn parse_branch_name(
-    branch_name: &str,
-) -> Result<(Option<String>, Option<String>, Option<String>)> {
-    let parts: Vec<&str> = branch_name.split('-').collect();
-    match parts.len() {
-        1 => Ok((Some(parts[0].to_string()), None, None)),
-        2 => Ok((Some(parts[0].to_string()), Some(parts[1].to_string()), None)),
-        3 => Ok((
-            Some(parts[0].to_string()),
-            Some(parts[1].to_string()),
-            Some(parts[2].to_string()),
-        )),
-        _ => Err(Static("too many parts in branch name, maximum 3.")),
+
+pub fn parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
+    // Check if the branch name is empty or contains only delimiters
+    if branch_name.trim().is_empty()
+        || branch_name.chars().all(|c| c == '-') // Check for only delimiters
+    {
+        return Err(AtomicError::Static(
+            "Branch name cannot be empty or contain only delimiters.",
+        ));
     }
+
+    // Parse parts by splitting on '-'
+    let parts: Vec<String> = branch_name
+        .split('-') // Split by '-'
+        .filter(|s| !s.is_empty()) // Filter out empty parts
+        .map(|s| s.to_string()) // Convert to String
+        .collect();
+
+    Ok(parts)
 }
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_parse_branch_name() {
+        // Test parsing multiple parts
         assert_eq!(
             parse_branch_name("feature-144-adding_dark_mode"),
-            Ok((
-                Some("feature".to_string()),
-                Some("144".to_string()),
-                Some("adding_dark_mode".to_string())
-            ))
+            Ok(vec![
+                "feature".to_string(),
+                "144".to_string(),
+                "adding_dark_mode".to_string()
+            ])
         );
+
+        // Test parsing two parts
         assert_eq!(
             parse_branch_name("feature-144"),
-            Ok((Some("feature".to_string()), Some("144".to_string()), None))
+            Ok(vec!["feature".to_string(), "144".to_string()])
         );
+
+        // Test parsing one part
         assert_eq!(
             parse_branch_name("feature"),
-            Ok((Some("feature".to_string()), None, None))
+            Ok(vec!["feature".to_string()])
         );
-        assert!(parse_branch_name("feature-144-adding_dark_mode-extras").is_err());
+
+        // Test empty branch name
+        assert_eq!(
+            parse_branch_name(""),
+            Err(AtomicError::Static(
+                "Branch name cannot be empty or contain only delimiters."
+            ))
+        );
+
+        // Test invalid input (all delimiters)
+        assert_eq!(
+            parse_branch_name("---"),
+            Err(AtomicError::Static(
+                "Branch name cannot be empty or contain only delimiters."
+            ))
+        );
+
+        // Test parsing many parts
+        assert_eq!(
+            parse_branch_name("feature-144-adding-dark-mode-extras"),
+            Ok(vec![
+                "feature".to_string(),
+                "144".to_string(),
+                "adding".to_string(),
+                "dark".to_string(),
+                "mode".to_string(),
+                "extras".to_string()
+            ])
+        );
     }
 }
