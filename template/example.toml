@@ -1,33 +1,41 @@
-# Atomic 
-# The goal of atomic is to be able to prevent the need of leaving work flow focus and to make atomic commits "almost" automatic.
-# Not all commands need to be wrapped in Atomic, only the commands that you want local commits to happen with. 
-# A incidental by-product of this is you can easily write chainable commands to do either pre / post commands into
-# these workflows, saving some repitition as well as keeping you more focused.
+# Atomic
+# The goal of Atomic is to eliminate workflow disruption by automating atomic commits.
+# Wrap only the commands where you want automatic Git snapshots to happen.
+# A side benefit: you can create chainable workflows with before/after steps,
+# reducing repetition and keeping your flow tight.
 
-# Windows | Linux - chaining commands
-#   ';'  executes the next command regardless if the first command is successful or not.
-#   '&&' executes the next command only if the previous command is successful.
-#   '||' executes the next command only if the previous command failed.
+# Windows | Linux - shell chaining reference:
+#   ';'  runs the next command regardless of success
+#   '&&' runs the next only if the previous succeeded
+#   '||' runs the next only if the previous failed
 
-# Examples
-#    `mkdir rust_project; cd rust_project ; cargo init` -- sequentially runs commands left to right, 
-#                                                          regardless of previous command's success.
-#    `cargo build && cargo run`    -- cargo run only executes if build is successful.
-#    `cargo build || cargo clippy` -- if cargo build fails, runs cargo clippy.
-#
+# Examples:
+#   mkdir rust_project; cd rust_project; cargo init
+#   cargo build && cargo run
+#   cargo build || cargo clippy
 
 # Notes:
-# if multiple key names are present, Atomic will default to the first found in the list.
-# names can be kebab (-) or snake(_) to provide more key name options
+# - Atomic will resolve the first matching key (snake_case or kebab-case).
+# - You can define a command as a string or as a table with hooks.
+# - Chains can include custom command names or raw shell commands.
 
-
-# default commands
+# Default commands (optional overrides for `build`, `test`, and `run`)
 [default]
 build = ""
 test  = ""
 run   = ""
 
-# custom commands go here
-[custom]
-# chain several custom commands together, regardless if they are declared.
-chain = ["echo hello", "echo world"]
+# Custom commands go here
+# You can use raw shell strings or full hook tables
+
+[custom.hello]
+before  = "echo Starting hello"
+command = "echo Hello from Atomic"
+after   = "echo Hello done"
+
+[custom.world]
+command = "echo World"
+
+# A chain of commands, which can be declared commands or raw shell strings
+[custom.chain]
+command = ["hello", "world", "echo 'From the other side'"]

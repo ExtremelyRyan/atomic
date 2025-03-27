@@ -54,7 +54,6 @@ pub fn send_command(cmd: &str) {
     }
 }
 
-
 pub fn _get_git_info() -> Result<(String, String, u64)> {
     // Get the current directory
     let current_dir = env::current_dir().expect("Failed to get current directory");
@@ -70,12 +69,15 @@ pub fn _get_git_info() -> Result<(String, String, u64)> {
     };
 
     // Parse branch name into parts
-    let parts = parse_branch_name(branch_name)?; // Updated to handle Vec<String>
+    let parts = _parse_branch_name(branch_name)?; // Updated to handle Vec<String>
 
     // Extract parts safely
-    let feature = parts.get(0).cloned().unwrap_or_default(); // First part as feature
-    let issue = parts.get(1).cloned().unwrap_or_default();   // Second part as issue number
-    let desc = parts.get(2..).map(|rest| rest.join("-")).unwrap_or_default(); // Remaining parts as description
+    let feature = parts.first().cloned().unwrap_or_default(); // First part as feature
+    let issue = parts.get(1).cloned().unwrap_or_default(); // Second part as issue number
+    let desc = parts
+        .get(2..)
+        .map(|rest| rest.join("-"))
+        .unwrap_or_default(); // Remaining parts as description
 
     // Parse issue number safely
     let issue_num = issue.parse::<u64>().unwrap_or(0);
@@ -83,7 +85,6 @@ pub fn _get_git_info() -> Result<(String, String, u64)> {
     // Return feature, description, and issue number
     Ok((feature, desc, issue_num))
 }
-
 
 pub fn commit_local_changes() -> Result<()> {
     let repo = Repository::open(".")?;
@@ -113,10 +114,10 @@ pub fn commit_local_changes() -> Result<()> {
     Ok(())
 }
 
-pub fn parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
+pub fn _parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     // Check if the branch name is empty or contains only delimiters
-    if branch_name.trim().is_empty()
-        || branch_name.chars().all(|c| c == '-') // Check for only delimiters
+    if branch_name.trim().is_empty() || branch_name.chars().all(|c| c == '-')
+    // Check for only delimiters
     {
         return Err(AtomicError::Static(
             "Branch name cannot be empty or contain only delimiters.",
@@ -133,7 +134,6 @@ pub fn parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     Ok(parts)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,7 +142,7 @@ mod tests {
     fn test_parse_branch_name() {
         // Test parsing multiple parts
         assert_eq!(
-            parse_branch_name("feature-144-adding_dark_mode"),
+            _parse_branch_name("feature-144-adding_dark_mode"),
             Ok(vec![
                 "feature".to_string(),
                 "144".to_string(),
@@ -152,19 +152,19 @@ mod tests {
 
         // Test parsing two parts
         assert_eq!(
-            parse_branch_name("feature-144"),
+            _parse_branch_name("feature-144"),
             Ok(vec!["feature".to_string(), "144".to_string()])
         );
 
         // Test parsing one part
         assert_eq!(
-            parse_branch_name("feature"),
+            _parse_branch_name("feature"),
             Ok(vec!["feature".to_string()])
         );
 
         // Test empty branch name
         assert_eq!(
-            parse_branch_name(""),
+            _parse_branch_name(""),
             Err(AtomicError::Static(
                 "Branch name cannot be empty or contain only delimiters."
             ))
@@ -172,7 +172,7 @@ mod tests {
 
         // Test invalid input (all delimiters)
         assert_eq!(
-            parse_branch_name("---"),
+            _parse_branch_name("---"),
             Err(AtomicError::Static(
                 "Branch name cannot be empty or contain only delimiters."
             ))
@@ -180,7 +180,7 @@ mod tests {
 
         // Test parsing many parts
         assert_eq!(
-            parse_branch_name("feature-144-adding-dark-mode-extras"),
+            _parse_branch_name("feature-144-adding-dark-mode-extras"),
             Ok(vec![
                 "feature".to_string(),
                 "144".to_string(),

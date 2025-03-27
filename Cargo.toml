@@ -23,7 +23,7 @@ name = "cargo-atomic"
 path = "src/main.rs"
 
 [dependencies]
-clap = "4.5.4"
-git2 = "0.18.3"
-thiserror = "1.0.60"
+clap = "4.5.34"
+git2 = "0.20.1"
+thiserror = "2.0.12"
 toml = "0.8.12"

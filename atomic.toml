@@ -1,40 +1,48 @@
-# Atomic 
-# The goal of atomic is to be able to prevent the need of leaving work flow focus and to make atomic commits "almost" automatic.
-# Not all commands need to be wrapped in Atomic, only the commands that you want local commits to happen with. 
-# A incidental by-product of this is you can easily write chainable commands to do either pre / post commands into
-# these workflows, saving some repitition as well as keeping you more focused.
-
-# Windows | Linux - chaining commands
-#   ';'  executes the next command regardless if the first command is successful or not.
-#   '&&' executes the next command only if the previous command is successful.
-#   '||' executes the next command only if the previous command failed.
-
-# Examples
-#    `mkdir rust_project; cd rust_project ; cargo init` -- sequentially runs commands left to right, 
-#                                                          regardless of previous command's success.
-#    `cargo build && cargo run`    -- cargo run only executes if build is successful.
-#    `cargo build || cargo clippy` -- if cargo build fails, runs cargo clippy.
-#
+# Atomic
+# The goal of atomic is to eliminate context-switching and make atomic commits "almost" automatic.
+# Only wrap commands you want local commits for. You can chain pre/post commands and reduce repetition
+# by structuring everything declaratively in this config.
 
 # Notes:
-# if multiple key names are present, Atomic will default to the first found in the list.
-# names can be kebab (-) or snake(_) to provide more key name options
+# - Atomic will run the first matching key it finds (snake_case or kebab-case both work).
+# - Chaining supports raw shell commands or references to other [custom] blocks.
+# - Hooks are optional: before / command / after.
+# - You can still use '&&' or ';' for shell-side chaining if needed.
 
+# Windows | Linux - shell chaining reference:
+#   ';'  executes the next command regardless of success.
+#   '&&' only runs next if previous succeeded.
+#   '||' only runs next if previous failed.
 
-# default commands
+# Examples:
+#   mkdir rust_project; cd rust_project; cargo init
+#   cargo build && cargo run
+#   cargo build || cargo clippy
+
+# Default commands (these are optional and can be overridden)
 [default]
 build = "echo build"
 test  = "echo test"
 run   = "echo run"
 
-# custom commands go here
-[custom]
-check      = "cargo check"
-clippy     = "cargo clippy"
-tw         = "cargo test --all-features --workspace"
-clippy_max = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
-doc        = "cargo doc --no-deps --document-private-items --all-features --workspace"
+# Custom commands with optional hooks
+[custom.check]
+command = "cargo check"
 
-# chain several custom commands together, regardless if they are declared.
-chain = ["check", "clippy", "cargo fmt"]
-empty = [""]
+[custom.clippy]
+before  = "echo Running Clippy"
+command = "cargo clippy"
+after   = "echo Clippy finished"
+
+[custom.test-all]
+command = "cargo test --all-features --workspace"
+
+[custom.clippy_max]
+command = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
+
+[custom.doc]
+command = "cargo doc --no-deps --document-private-items --all-features --workspace --open"
+
+# Chain multiple commands, declared or raw
+[custom.chain]
+command = ["check", "clippy", "cargo fmt"]
