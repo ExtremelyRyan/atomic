@@ -33,7 +33,7 @@ check      = "cargo check"
 clippy     = "cargo clippy"
 test-all   = "cargo test --all-features --workspace"
 clippy_max = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
-doc        = "cargo doc --no-deps --document-private-items --all-features --workspace"
+doc        = "cargo doc --no-deps --document-private-items --all-features --workspace --open"
 
 # chain several custom commands together, regardless if they are declared.
 chain = ["check", "clippy", "cargo fmt"]
