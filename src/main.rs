@@ -3,6 +3,7 @@
 mod cli;
 mod config;
 mod git;
+mod plugin;
 mod toml;
 
 fn main() {

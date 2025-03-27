@@ -7,8 +7,8 @@ use std::{
 use clap::{Arg, Command};
 use toml::Value;
 
-use crate::git::send_command;
 use crate::toml::{find_key_in_tables, get_toml_content, get_toml_keys};
+use crate::{git::send_command, plugin::run_plugin};
 
 fn cli() -> Command {
     Command::new("atomic")
@@ -43,6 +43,13 @@ fn cli() -> Command {
                 .requires("init")
                 .conflicts_with_all(["list", "CMD"])
                 .value_parser(["rust", "default"]),
+        )
+        .arg(
+            Arg::new("PLUGIN")
+                .help("Run a plugin defined in [plugin]")
+                .long("plugin")
+                .value_name("PLUGIN_NAME")
+                .conflicts_with_all(["list", "init", "CMD", "template"]),
         )
         .arg_required_else_help(true)
 }
@@ -79,6 +86,11 @@ pub fn start_cli() {
     // Case 3: a named command was passed (e.g., `atomic check`)
     else if let Some(cmd) = cmd {
         run_command(cmd, "atomic.toml");
+    } else if let Some(plugin_name) = matches.get_one::<String>("PLUGIN") {
+        if let Err(err) = run_plugin(plugin_name, "atomic.toml") {
+            eprintln!("❌ Plugin failed: {}", err);
+        }
+        return;
     }
     // Case 4: nothing valid was passed (shouldn’t happen due to Clap, but safe to handle)
     else {
@@ -446,6 +458,39 @@ pub fn validate_toml_schema(toml: &Value) -> Result<(), Vec<String>> {
                     _ => {
                         errors.push(format!("[custom.{}] must be a string or a table", key));
                     }
+                }
+            }
+            if let Some(plugin_section) = toml.get("plugin") {
+                if let Some(plugin_table) = plugin_section.as_table() {
+                    for (name, entry) in plugin_table {
+                        match entry {
+                            Value::Table(map) => {
+                                if !map.contains_key("script") {
+                                    errors.push(format!(
+                                        "[plugin.{}] is missing required 'script'",
+                                        name
+                                    ));
+                                }
+
+                                for (k, v) in map {
+                                    match (k.as_str(), v) {
+                                        ("script", Value::String(_)) => {}
+                                        ("args", Value::Array(arr))
+                                            if arr.iter().all(|i| i.is_str()) => {}
+                                        ("preferred", Value::String(_)) => {}
+                                        ("silent", Value::Boolean(_)) => {} // ✅ allow 'silent' as valid
+                                        _ => errors.push(format!(
+                                            "[plugin.{}] has invalid key '{}'",
+                                            name, k
+                                        )),
+                                    }
+                                }
+                            }
+                            _ => errors.push(format!("[plugin.{}] must be a table", name)),
+                        }
+                    }
+                } else {
+                    errors.push("[plugin] must be a table".into());
                 }
             }
         } else {

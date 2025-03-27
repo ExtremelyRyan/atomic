@@ -1,0 +1,27 @@
+fix local commit not happening when running commands
+add flag to override git commit? (just run command without doing a local commit)
+
+add more templates for other languages
+
+
+other cool ideas
+
+# File Watcher / Auto-Trigger
+Run a plugin whenever files change (à la nodemon, watchexec):
+`atomic watch --plugin dev-server --glob "src/**/*"`
+Would re-run the plugin on file changes.
+
+
+🗺️ 20. Named Profiles
+Support different atomic setups for different environments:
+
+[profiles.dev]
+include = ["build", "lint", "dev-server"]
+
+[profiles.deploy]
+include = ["test", "build", "deploy"]
+Run with:
+
+atomic --profile deploy
+
+

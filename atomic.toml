@@ -19,13 +19,7 @@
 #   cargo build && cargo run
 #   cargo build || cargo clippy
 
-# Default commands (these are optional and can be overridden)
-[default]
-build = "echo build"
-test  = "echo test"
-run   = "echo run"
 
-# Custom commands with optional hooks
 [custom.check]
 command = "cargo check"
 
@@ -34,7 +28,7 @@ before  = "echo Running Clippy"
 command = "cargo clippy"
 after   = "echo Clippy finished"
 
-[custom.test-all]
+[custom.tw]
 command = "cargo test --all-features --workspace"
 
 [custom.clippy_max]
@@ -45,4 +39,12 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 
 # Chain multiple commands, declared or raw
 [custom.chain]
-command = ["check", "clippy", "cargo fmt"]
+command = ["check", "tw", "cargo fmt"]
+
+[plugin.generate-docs]
+script = "./scripts/test"         # base path (no extension)
+args = ["hello", "from", "Atomic!"] 
+silent = true   # optional, defaults to false
+
+[plugin.cleanup]
+script = "./scripts/clean_temp.bat"
