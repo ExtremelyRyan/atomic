@@ -71,11 +71,12 @@ fn start_init() {
     let atomic = "atomic.toml";
 
     // if our atomic file does not exist, we create one from a template.
-    if let Err(_) = fs::metadata(atomic) {
+    if fs::metadata(atomic).is_err() {
         if let Ok(_created_file) = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(atomic)
         {
             // todo: write template to file here
@@ -87,6 +88,10 @@ fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
     // read in atomic file and parse it out
     let parsed_toml = get_toml_content(atomic).unwrap();
 
+    // dbg!(find_key_in_tables(parsed_toml.clone(), "check")); // Should return "cargo check"
+    // dbg!(find_key_in_tables(parsed_toml.clone(), "clippy")); // Should return "cargo clippy"
+    // dbg!(find_key_in_tables(parsed_toml.clone(), "chain")); // Should return ["check", "clippy", ...]
+
     let (_, value) = find_key_in_tables(parsed_toml.clone(), cmd).unwrap_or((String::new(), None));
 
     match value {
@@ -96,13 +101,23 @@ fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
             assert!(!sub_values.is_empty(), "Array of sub-values is empty");
 
             for v in sub_values {
-                // dbg!(&v);
-                let inner_value = match find_key_in_tables(parsed_toml.clone(), v.as_str().unwrap())
-                {
-                    Some((_, Some(inner_value))) => inner_value,
+                // Resolve sub-command value
+                let inner_value = match v {
+                    Value::String(ref s) => {
+                        // Perform lookup in nested "custom" table
+                        find_key_in_tables(parsed_toml.clone(), s)
+                            .and_then(|(_, val)| val) // Get the value if found
+                            .unwrap_or(v.clone()) // Use the original value if not found
+                    }
                     _ => v.clone(),
                 };
-                send_command(&inner_value.as_str().unwrap_or_default());
+
+                if let Some(command_str) = inner_value.as_str() {
+                    // dbg!(&command_str);
+                    send_command(command_str); // Execute resolved command
+                } else {
+                    eprintln!("Invalid command format: {:?}", inner_value);
+                }
             }
         }
         _ => {

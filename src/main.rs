@@ -4,7 +4,6 @@ mod cli;
 mod git;
 mod toml;
 
-
 fn main() {
     cli::start_cli();
 }

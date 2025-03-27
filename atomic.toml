@@ -37,3 +37,4 @@ doc        = "cargo doc --no-deps --document-private-items --all-features --work
 
 # chain several custom commands together, regardless if they are declared.
 chain = ["check", "clippy", "cargo fmt"]
+empty = [""]
