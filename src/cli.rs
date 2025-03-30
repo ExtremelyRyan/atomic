@@ -7,7 +7,7 @@ use std::{
 use clap::{Arg, Command};
 use toml::Value;
 
-use crate::toml::{find_key_in_tables, get_toml_content, get_toml_keys};
+use crate::{git, toml::{find_key_in_tables, get_toml_content, get_toml_keys}};
 use crate::{git::send_command, plugin::run_plugin};
 
 fn cli() -> Command {
@@ -58,43 +58,41 @@ fn cli() -> Command {
 pub fn start_cli() {
     let matches = cli().get_matches();
 
-    // Check if --init is selected
     let init_selected = matches.get_one::<bool>("init").copied().unwrap_or(false);
-
-    // Check if --list is selected
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
-
-    // Check if a positional command was passed (e.g., `atomic build`)
     let cmd = matches.get_one::<String>("CMD");
-
-    // Get template name (only used if --init is true)
+    let plugin_name = matches.get_one::<String>("PLUGIN");
     let template_name = matches
         .get_one::<String>("template")
         .map(String::as_str)
         .unwrap_or("default");
 
-    // Case 1: --list was passed
+    // Track whether we executed a command or plugin
+    let mut command_ran = false;
+
     if list_selected {
         list_keys();
-    }
-    // Case 2: --init was passed (with or without --template)
-    else if init_selected {
+    } else if init_selected {
         if let Err(err) = start_init(template_name) {
             eprintln!("❌ Failed to initialize atomic.toml: {}", err);
         }
-    }
-    // Case 3: a named command was passed (e.g., `atomic check`)
-    else if let Some(cmd) = cmd {
+    } else if let Some(cmd) = cmd {
         run_command(cmd, "atomic.toml");
-    } else if let Some(plugin_name) = matches.get_one::<String>("PLUGIN") {
-        if let Err(err) = run_plugin(plugin_name, "atomic.toml") {
-            eprintln!("❌ Plugin failed: {}", err);
+        command_ran = true;
+    } else if let Some(plugin) = plugin_name {
+        if let Err(err) = run_plugin(plugin, "atomic.toml") {
+            eprintln!("❌ Plugin '{}' failed: {}", plugin, err);
+        } else {
+            command_ran = true;
         }
-        return;
     }
-    // Case 4: nothing valid was passed (shouldn’t happen due to Clap, but safe to handle)
-    else {
-        eprintln!("Invalid command or no command provided.");
+
+    // Perform auto-commit after successful command or plugin run
+    if command_ran {
+        match git::commit_local_changes() {
+            Ok(_) => println!("✅ Auto-commit completed."),
+            Err(e) => eprintln!("❌ Auto-commit failed: {}", e),
+        }
     }
 }
 
