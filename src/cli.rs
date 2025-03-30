@@ -1,11 +1,16 @@
 use std::{
-    arch::x86_64, fs::File, io::{self, Write}, path::{Path, PathBuf}
+    fs::File,
+    io::{self, Write},
+    path::{Path, PathBuf},
 };
 
 use clap::{Arg, Command};
 use toml::Value;
 
-use crate::{git, toml::{find_key_in_tables, get_toml_content, get_toml_keys}};
+use crate::{
+    git,
+    toml::{find_key_in_tables, get_toml_content, get_toml_keys},
+};
 use crate::{git::send_command, plugin::run_plugin};
 
 fn cli() -> Command {
