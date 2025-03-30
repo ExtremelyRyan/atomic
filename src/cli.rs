@@ -1,7 +1,5 @@
 use std::{
-    fs::File,
-    io::{self, Write},
-    path::{Path, PathBuf},
+    arch::x86_64, fs::File, io::{self, Write}, path::{Path, PathBuf}
 };
 
 use clap::{Arg, Command};
@@ -89,7 +87,8 @@ pub fn start_cli() {
 
     // Perform auto-commit after successful command or plugin run
     if command_ran {
-        match git::commit_local_changes() {
+        let cmd_str = cmd.map( |x| x.as_str());
+        match git::commit_local_changes(cmd_str) {
             Ok(_) => println!("✅ Auto-commit completed."),
             Err(e) => eprintln!("❌ Auto-commit failed: {}", e),
         }
