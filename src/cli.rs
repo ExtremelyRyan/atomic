@@ -52,32 +52,48 @@ fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-/// Entry point for handling CLI arguments and dispatching command logic.
+/// Main CLI entry point — handles argument parsing and command dispatch
 pub fn start_cli() {
     let matches = cli().get_matches();
 
+    // See if the user passed --init to create an atomic.toml file
     let init_selected = matches.get_one::<bool>("init").copied().unwrap_or(false);
+
+    // Check if they passed --list to print all command keys
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
+
+    // This grabs a positional command like `atomic build`
     let cmd = matches.get_one::<String>("CMD");
+
+    // This grabs the plugin name if they passed --plugin <name>
     let plugin_name = matches.get_one::<String>("PLUGIN");
+
+    // If --init was used, see if they passed --template (default to "default" if not)
     let template_name = matches
         .get_one::<String>("template")
         .map(String::as_str)
         .unwrap_or("default");
 
-    // Track whether we executed a command or plugin
+    // We'll use this to track whether a command or plugin actually ran
     let mut command_ran = false;
 
+    // If the user just wants to see available commands, print them and exit
     if list_selected {
         list_keys();
-    } else if init_selected {
+    }
+    // If --init was used, try to write a new atomic.toml template to the current folder
+    else if init_selected {
         if let Err(err) = start_init(template_name) {
             eprintln!("❌ Failed to initialize atomic.toml: {}", err);
         }
-    } else if let Some(cmd) = cmd {
+    }
+    // If they passed a command like `atomic check`, run it
+    else if let Some(cmd) = cmd {
         run_command(cmd, "atomic.toml");
         command_ran = true;
-    } else if let Some(plugin) = plugin_name {
+    }
+    // If they passed a plugin with --plugin <name>, run that
+    else if let Some(plugin) = plugin_name {
         if let Err(err) = run_plugin(plugin, "atomic.toml") {
             eprintln!("❌ Plugin '{}' failed: {}", plugin, err);
         } else {
@@ -85,12 +101,14 @@ pub fn start_cli() {
         }
     }
 
-    // Perform auto-commit after successful command or plugin run
+    // If anything ran successfully, trigger a Git auto-commit
     if command_ran {
-        let cmd_str = cmd.map( |x| x.as_str());
+        // Use the command name (if available) as context for the commit message
+        let cmd_str = cmd.map(|x| x.as_str());
+
         match git::commit_local_changes(cmd_str) {
-            Ok(_) => println!("✅ Auto-commit completed."),
-            Err(e) => eprintln!("❌ Auto-commit failed: {}", e),
+            Ok(_) => println!("Auto-commit completed."),
+            Err(e) => eprintln!("Auto-commit failed: {}", e),
         }
     }
 }
