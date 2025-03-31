@@ -41,6 +41,7 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 [custom.chain]
 command = ["check", "tw", "cargo fmt"]
 
+
 [plugin.generate-docs]
 script = "./scripts/test"         # base path (no extension)
 args = ["hello", "from", "Atomic!"] 
