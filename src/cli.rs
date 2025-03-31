@@ -1,7 +1,5 @@
 use std::{
-    fs::File,
-    io::{self, Write},
-    path::{Path, PathBuf},
+    fs::File, io::{self, Write}, ops::Not, path::{Path, PathBuf}
 };
 
 use clap::{Arg, Command};
@@ -451,159 +449,128 @@ fn run_table_command(table: &toml::value::Table, label: &str) {
         send_command(after);
     }
 }
+ 
+ 
+// -------------
+// TOP LEVEL VALIDATOR
+// -------------
 
-/// Validates the structure and contents of the `[custom]` section in an `atomic.toml` file.
-///
-/// This function checks that:
-/// - Each `[custom.<name>]` block is either a string (old-style) or a table (new-style).
-/// - Each table contains a `command` key.
-/// - The `command` key is either a string or an array of strings.
-/// - The `before` and `after` keys (if present) are strings.
-/// - Any unrecognized keys are flagged as invalid.
-/// - Placeholder values like `"command"`, `"todo"`, or `"fixme"` in the `command` field are flagged as likely mistakes.
-///
-/// # Arguments
-///
-/// * `toml` - A `toml::Value` parsed from `atomic.toml`.
-///
-/// # Returns
-///
-/// * `Ok(())` if the schema is valid.
-/// * `Err(Vec<String>)` containing descriptive error messages if validation fails.
-///
-/// # Example
-///
-/// ```rust
-/// let toml = toml::from_str(r#"
-///     [custom.build]
-///     command = ["check", "fmt"]
-///     before = "echo before"
-///     after = "echo after"
-/// "#).unwrap();
-///
-/// assert!(validate_toml_schema(&toml).is_ok());
-/// ```
-///
-/// # Errors
-///
-/// Returns a list of strings explaining why the validation failed. Common causes include:
-/// - Missing `command` key in a `[custom.<name>]` block
-/// - `command` is not a string or array of strings
-/// - `before` or `after` are not strings
-/// - Use of known placeholder values like `"command"` or `"todo"` in the `command` field
-///
-/// # Related
-///
-/// This function is typically used immediately after parsing the `atomic.toml` file,
-/// before executing any commands, to ensure the configuration is safe and meaningful.
 pub fn validate_toml_schema(toml: &Value) -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
 
-    // Look for the [custom] section in the TOML
     if let Some(custom_section) = toml.get("custom") {
         if let Some(custom_table) = custom_section.as_table() {
-            // Loop through each [custom.NAME] block
-            for (key, entry) in custom_table {
-                match entry {
-                    // Old-style: clippy = "cargo clippy" is valid
-                    Value::String(_) => {}
-
-                    // New-style: [custom.clippy] with "command", "before", "after"
-                    Value::Table(map) => {
-                        // Must have a "command" key
-                        if !map.contains_key("command") {
-                            errors.push(format!("[custom.{}] is missing 'command'", key));
-                        }
-
-                        // Validate each key-value pair inside the table
-                        for (k, v) in map {
-                            let is_valid = match (k.as_str(), v) {
-                                // command = "cargo build"
-                                ("command", Value::String(_)) => true,
-
-                                // command = ["check", "fmt"]
-                                ("command", Value::Array(arr)) => {
-                                    arr.iter().all(|item| item.is_str())
-                                }
-
-                                // before = "..."
-                                ("before", Value::String(_)) => true,
-
-                                // after = "..."
-                                ("after", Value::String(_)) => true,
-
-                                // anything else is invalid
-                                _ => false,
-                            };
-
-                            if !is_valid {
-                                errors.push(format!(
-                                    "[custom.{}] key '{}' must be a string or array of strings",
-                                    key, k
-                                ));
-                            }
-                        }
-
-                        // Extra validation: detect placeholder values like "command" or "todo"
-                        if let Some(Value::String(cmd)) = map.get("command") {
-                            let placeholders = ["command", "todo", "fixme", "placeholder"];
-                            if placeholders.contains(&cmd.to_lowercase().as_str()) {
-                                errors.push(format!(
-                                    "[custom.{}] command is set to '{}', which looks like a placeholder",
-                                    key, cmd
-                                ));
-                            }
-                        }
-                    }
-
-                    // Anything else (like command = 123 or command = true) is invalid
-                    _ => {
-                        errors.push(format!("[custom.{}] must be a string or a table", key));
-                    }
-                }
-            }
-            if let Some(plugin_section) = toml.get("plugin") {
-                if let Some(plugin_table) = plugin_section.as_table() {
-                    for (name, entry) in plugin_table {
-                        match entry {
-                            Value::Table(map) => {
-                                if !map.contains_key("script") {
-                                    errors.push(format!(
-                                        "[plugin.{}] is missing required 'script'",
-                                        name
-                                    ));
-                                }
-
-                                for (k, v) in map {
-                                    match (k.as_str(), v) {
-                                        ("script", Value::String(_)) => {}
-                                        ("args", Value::Array(arr))
-                                            if arr.iter().all(|i| i.is_str()) => {}
-                                        ("preferred", Value::String(_)) => {}
-                                        ("silent", Value::Boolean(_)) => {} // ✅ allow 'silent' as valid
-                                        _ => errors.push(format!(
-                                            "[plugin.{}] has invalid key '{}'",
-                                            name, k
-                                        )),
-                                    }
-                                }
-                            }
-                            _ => errors.push(format!("[plugin.{}] must be a table", name)),
-                        }
-                    }
-                } else {
-                    errors.push("[plugin] must be a table".into());
-                }
-            }
+            validate_custom_section(custom_table, &mut errors);
         } else {
             errors.push("[custom] must be a table".to_string());
         }
     }
 
-    // Return errors if any were found
+    if let Some(plugin_section) = toml.get("plugin") {
+        if let Some(plugin_table) = plugin_section.as_table() {
+            validate_plugin_section(plugin_table, &mut errors);
+        } else {
+            errors.push("[plugin] must be a table".to_string());
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+
+// -------------
+// CUSTOM COMMANDS
+// -------------
+
+fn validate_custom_section(custom_table: &toml::value::Table, errors: &mut Vec<String>) {
+    for (key, entry) in custom_table {
+        match entry {
+            Value::String(_) => {} // old-style string command
+
+            Value::Table(map) => {
+                validate_custom_entry(key, map, errors);
+            }
+
+            _ => errors.push(format!("[custom.{}] must be a string or a table", key)),
+        }
+    }
+}
+
+fn validate_custom_entry(key: &str, map: &toml::value::Table, errors: &mut Vec<String>) {
+    if !map.contains_key("command") {
+        errors.push(format!("[custom.{}] is missing 'command'", key));
+    }
+
+    for (k, v) in map {
+        let valid = match (k.as_str(), v) {
+            ("command", Value::String(_)) => true,
+            ("command", Value::Array(arr)) => arr.iter().all(|item| item.is_str()),
+            ("before", Value::String(_)) => true,
+            ("after", Value::String(_)) => true,
+            ("desc", Value::String(_)) => true,
+            ("desc", Value::Array(arr)) => arr.iter().all(|item| item.is_str()),
+            _ => false,
+        };
+
+        if !valid {
+            errors.push(format!(
+                "[custom.{}] key '{}' must be a string or array of strings",
+                key, k
+            ));
+        }
+    }
+
+    if let Some(Value::String(cmd)) = map.get("command") {
+        let placeholders = ["command", "todo", "fixme", "placeholder"];
+        if placeholders.contains(&cmd.to_lowercase().as_str()) {
+            errors.push(format!(
+                "[custom.{}] command is set to '{}', which looks like a placeholder",
+                key, cmd
+            ));
+        }
+    }
+}
+
+// -------------
+// PLUGINS
+// -------------
+
+fn validate_plugin_section(plugin_table: &toml::value::Table, errors: &mut Vec<String>) {
+    for (name, entry) in plugin_table {
+        match entry {
+            Value::Table(map) => {
+                validate_plugin_entry(name, map, errors);
+            }
+            _ => errors.push(format!("[plugin.{}] must be a table", name)),
+        }
+    }
+}
+
+fn validate_plugin_entry(name: &str, map: &toml::value::Table, errors: &mut Vec<String>) {
+    if !map.contains_key("script") {
+        errors.push(format!("[plugin.{}] is missing required 'script'", name));
+    }
+
+    for (k, v) in map {
+        let valid = match (k.as_str(), v) {
+            ("script", Value::String(_)) => true,
+            ("args", Value::Array(arr)) => arr.iter().all(|i| i.is_str()),
+            ("preferred", Value::String(_)) => true,
+            ("silent", Value::Boolean(_)) => true,
+            ("desc", Value::String(_)) => true,
+            ("desc", Value::Array(arr)) => arr.iter().all(|i| i.is_str()),
+            _ => false,
+        };
+
+        if !valid {
+            errors.push(format!(
+                "[plugin.{}] has invalid key '{}'",
+                name, k
+            ));
+        }
     }
 }

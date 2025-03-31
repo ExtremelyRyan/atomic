@@ -41,7 +41,7 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 # Chain multiple commands, declared or raw
 [custom.chain]
 command = ["check", "tw", "cargo fmt"]
-desc = ["runs custom check, test workspace, and cargo fmt"]
+desc = "runs custom check, test workspace, and cargo fmt"
 
 
 [plugin.generate-docs]
