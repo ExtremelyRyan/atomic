@@ -75,8 +75,6 @@ pub fn load_and_validate_toml(path: &Path) -> Option<Value> {
     Some(toml)
 }
 
-
-
 /// Prints all user-accessible command keys defined in atomic.toml,
 /// grouped by section ([default], [custom], [plugin]).
 /// Also prints descriptions if the user defined a `desc` field.

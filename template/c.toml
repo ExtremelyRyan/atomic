@@ -1,0 +1,20 @@
+# Build C app
+[custom.build]
+desc    = "Compile C source into an executable"
+command = "gcc -Wall -o app main.c"
+
+# Run the resulting binary
+[custom.run]
+desc    = "Execute compiled C binary"
+command = "./app"
+
+# Full dev cycle: build and run
+[custom.dev]
+desc    = "Compile and immediately run the C program"
+command = ["build", "run"]
+
+# Plugin for cleaning up artifacts
+[plugin.cleanup]
+desc      = "Delete compiled C binaries and temp files"
+script    = "./scripts/clean_c.sh"
+silent    = true

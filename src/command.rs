@@ -6,8 +6,6 @@ use toml::Value;
 
 use crate::{git::send_command, toml::find_key_in_tables};
 
-
-
 /// Entry point to run a named command from the `atomic.toml` configuration.
 ///
 /// This function:
@@ -35,9 +33,6 @@ pub fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
     // Dispatch to execution logic with the resolved value
     execute_resolved_command(value.as_ref(), cmd, &toml, atomic_path);
 }
-
-
-
 
 /// Executes a resolved command from the TOML configuration.
 ///

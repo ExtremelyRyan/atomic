@@ -1,12 +1,12 @@
 //! Main execution point
 #[allow(dead_code)]
 mod cli;
+mod command;
 mod git;
 mod plugin;
+mod schema;
 mod template;
 mod toml;
-mod schema;
-mod command;
 
 fn main() {
     cli::start_cli();

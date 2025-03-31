@@ -1,7 +1,6 @@
-//! schema.rs 
+//! schema.rs
 
 use toml::Value;
-
 
 // -------------
 // TOP LEVEL VALIDATOR

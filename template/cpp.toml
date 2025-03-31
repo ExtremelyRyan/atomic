@@ -1,0 +1,28 @@
+# Build a C++ app using g++
+[custom.build]
+desc    = "Compile main.cpp with g++ (C++20)"
+before  = "echo 🔧 Compiling project..."
+command = "g++ -std=c++20 -Wall -o app main.cpp"
+after   = "echo ✅ Compilation complete."
+
+# Run the compiled binary
+[custom.run]
+desc    = "Execute the built binary"
+command = "./app"
+
+# Run test binary (assumes you have a unit test suite)
+[custom.test]
+desc    = ["Run unit tests", "Assumes you have a ./tests/test_runner binary"]
+command = "./tests/test_runner"
+
+# Developer flow: build then run
+[custom.dev]
+desc    = "Quick dev loop: build & run"
+command = ["build", "run"]
+
+# Clean up compiled binaries and artifacts
+[plugin.clean]
+desc      = "Remove all compiled output"
+script    = "./scripts/clean_cpp.sh"
+silent    = true
+preferred = "sh"

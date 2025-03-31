@@ -1,0 +1,28 @@
+# Build .NET project
+[custom.build]
+desc    = "Build solution using dotnet CLI"
+before  = "echo 🔨 Building solution..."
+command = "dotnet build"
+after   = "echo ✅ Build done."
+
+# Run test projects
+[custom.test]
+desc    = "Run unit tests with dotnet test"
+command = "dotnet test"
+
+# Clean up build outputs
+[custom.clean]
+desc    = "Clean all projects"
+command = "dotnet clean"
+
+# Dev loop: build, test, clean
+[custom.dev]
+desc    = ["Full CI pass", "Build + test + cleanup"]
+command = ["build", "test", "clean"]
+
+# Check .NET SDK version and runtime
+[plugin.verify-sdk]
+desc      = "Check installed .NET SDK and runtime"
+script    = "./scripts/check_dotnet.ps1"
+preferred = "ps1"
+silent    = true

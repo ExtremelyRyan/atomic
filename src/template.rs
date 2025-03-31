@@ -1,5 +1,5 @@
 //! template.rs
-//! 
+//!
 
 use std::{
     io,

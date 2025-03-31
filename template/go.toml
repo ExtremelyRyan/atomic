@@ -1,0 +1,26 @@
+# Run static analysis
+[custom.lint]
+desc    = "Lint Go code with golangci-lint"
+command = "golangci-lint run"
+
+# Run all unit tests
+[custom.test]
+desc    = "Run all unit tests across modules"
+command = "go test ./..."
+
+# Format and clean up go.mod/sum
+[custom.tidy]
+desc    = "Run go mod tidy to keep modules clean"
+command = "go mod tidy"
+
+# Composite quality gate
+[custom.check]
+desc    = ["Run tidy, lint, and tests", "Ensures code is clean"]
+command = ["tidy", "lint", "test"]
+
+# Plugin to check environment setup
+[plugin.env-check]
+desc      = "Validate GOPATH, version, and tools"
+script    = "./scripts/check_go_env.sh"
+silent    = false
+preferred = "sh"

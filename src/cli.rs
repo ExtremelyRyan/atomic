@@ -6,12 +6,15 @@ use std::{
     path::Path,
 };
 
-use clap::{Arg, Command}; 
+use clap::{Arg, Command};
 
-use crate::{
-    command::run_command, git, template::{user_template_path, GENERIC_TEMPLATE, RUST_TEMPLATE}, toml::list_keys
-};
 use crate::plugin::run_plugin;
+use crate::{
+    command::run_command,
+    git,
+    template::{user_template_path, GENERIC_TEMPLATE, RUST_TEMPLATE},
+    toml::list_keys,
+};
 
 fn cli() -> Command {
     Command::new("atomic")
@@ -63,7 +66,10 @@ pub fn start_cli() {
 
     // Top-level flags and arguments
     let init_selected = matches.get_one::<bool>("init").copied().unwrap_or(false);
-    let template_name = matches.get_one::<String>("template").map(String::as_str).unwrap_or("example");
+    let template_name = matches
+        .get_one::<String>("template")
+        .map(String::as_str)
+        .unwrap_or("example");
 
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
 
@@ -109,8 +115,6 @@ pub fn start_cli() {
         }
     }
 }
-
-
 
 /// Initializes an `atomic.toml` file using an embedded template.
 ///
@@ -164,4 +168,3 @@ pub fn start_init(template_name: &str) -> io::Result<()> {
     println!("✅ Created atomic.toml using '{}' template.", template_name);
     Ok(())
 }
-

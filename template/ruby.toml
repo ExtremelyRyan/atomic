@@ -1,0 +1,26 @@
+# Install Ruby dependencies
+[custom.bundle]
+desc    = "Install gems with Bundler"
+command = "bundle install"
+
+# Run RuboCop for static analysis
+[custom.lint]
+desc    = "Run RuboCop linter for style violations"
+command = "rubocop"
+
+# Run tests using RSpec
+[custom.test]
+desc    = "Run unit tests using RSpec"
+command = "rspec --format documentation"
+
+# Chain lint and tests together
+[custom.verify]
+desc    = "Ensure code passes style and test checks"
+command = ["lint", "test"]
+
+# Confirm correct Ruby version and environment
+[plugin.env-check]
+desc      = "Validate Ruby version and environment"
+script    = "./scripts/check_ruby_env.sh"
+preferred = "sh"
+silent    = false

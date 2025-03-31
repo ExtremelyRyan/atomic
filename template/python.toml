@@ -1,0 +1,27 @@
+# Lint using flake8
+[custom.lint]
+desc    = "Check for style issues with flake8"
+before  = "echo 🔍 Checking code..."
+command = "flake8 src/"
+after   = "echo ✅ Lint complete."
+
+# Run tests with pytest
+[custom.test]
+desc    = "Run all unit tests using pytest"
+command = "pytest -v"
+
+# Format code with Black
+[custom.format]
+desc    = "Apply consistent formatting with Black"
+command = "black src/"
+
+# Composite command: format, lint, then test
+[custom.verify]
+desc    = ["Full quality check", "Run formatter, linter, and tests"]
+command = ["format", "lint", "test"]
+
+# Ensure a virtual environment is active
+[plugin.venv-check]
+desc   = "Check that you're inside a virtualenv"
+script = "./scripts/check_venv.py"
+silent = false
