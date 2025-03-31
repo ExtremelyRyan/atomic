@@ -1,5 +1,8 @@
 use std::{
-    fs::File, io::{self, Write}, ops::Not, path::{Path, PathBuf}
+    fs::File,
+    io::{self, Write},
+    ops::Not,
+    path::{Path, PathBuf},
 };
 
 use clap::{Arg, Command};
@@ -7,7 +10,8 @@ use toml::Value;
 
 use crate::{
     git,
-    toml::{find_key_in_tables, get_toml_content, get_toml_keys},
+    template::{self, user_template_path, GENERIC_TEMPLATE, RUST_TEMPLATE},
+    toml::{find_key_in_tables, get_toml_content, list_keys},
 };
 use crate::{git::send_command, plugin::run_plugin};
 
@@ -70,8 +74,6 @@ fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-
-
 /// Main CLI entry point — handles argument parsing and command dispatch
 pub fn start_cli() {
     let matches = cli().get_matches();
@@ -82,14 +84,13 @@ pub fn start_cli() {
     let cmd = matches.get_one::<String>("CMD");
     let plugin_name = matches.get_one::<String>("PLUGIN");
 
-
     // We'll use this to track whether a command or plugin actually ran
     let mut command_ran = false;
 
     // If the user just wants to see available commands, print them and exit
     if list_selected {
         list_keys();
-    } 
+    }
     // If they passed a command like `atomic check`, run it
     else if let Some(cmd) = cmd {
         run_command(cmd, "atomic.toml");
@@ -116,87 +117,7 @@ pub fn start_cli() {
     }
 }
 
-/// Prints all user-accessible command keys defined in atomic.toml,
-/// grouped by section ([default], [custom], [plugin]).
-/// Also prints descriptions if the user defined a `desc` field.
-pub fn list_keys() {
-    match get_toml_content("atomic.toml") {
-        Some(toml) => {
-            let mut found = false;
 
-            // --- [default] section ---
-            // These are simple key-value pairs like build = "cargo build"
-            if let Some(defaults) = toml.get("default").and_then(|v| v.as_table()) {
-                println!("[default]");
-                for key in defaults.keys() {
-                    println!("  - {}", key); // Just print the command name (no description support here yet)
-                }
-                found = true;
-            }
-
-            // --- [custom] section ---
-            // These can be either simple string/array commands or full tables with hooks and descriptions
-            if let Some(custom) = toml.get("custom").and_then(|v| v.as_table()) {
-                println!("[custom]");
-                for (key, val) in custom.iter() {
-                    match val {
-                        // If the command is a full table, try to extract and show the description
-                        toml::Value::Table(inner) => {
-                            let desc = inner
-                                .get("desc")
-                                .and_then(|d| d.as_str())
-                                .unwrap_or("<no description>");
-                            println!("  - {:<12} {}", key, desc);
-                        }
-
-                        // If the command is a raw string or array (e.g., build = "cargo build")
-                        toml::Value::String(_) | toml::Value::Array(_) => {
-                            println!("  - {:<12} <no description>", key);
-                        }
-
-                        // Ignore unexpected formats
-                        _ => {}
-                    }
-                }
-                found = true;
-            }
-
-            // --- [plugin] section ---
-            // Plugins are scripts, often run with --plugin <name>. We show their description if available.
-            if let Some(plugins) = toml.get("plugin").and_then(|v| v.as_table()) {
-                println!("[plugin]");
-                for (key, val) in plugins.iter() {
-                    let desc = val
-                        .as_table()
-                        .and_then(|t| t.get("desc"))
-                        .and_then(|d| d.as_str())
-                        .unwrap_or("<no description>");
-                    println!("  - {:<12} {}", key, desc);
-                }
-                found = true;
-            }
-
-            // If no valid sections were found at all
-            if !found {
-                eprintln!("No commands found in atomic.toml.");
-            }
-        }
-
-        // Couldn’t read or parse the atomic.toml file
-        None => {
-            eprintln!("Failed to read atomic.toml.");
-        }
-    }
-}
-
-pub fn user_template_path(name: &str) -> Option<PathBuf> {
-    let base = dirs::config_dir()?; // ~/.config or %APPDATA%
-    Some(base.join("atomic").join("templates").join(format!("{name}.toml")))
-}
-
-
-const RUST_TEMPLATE: &str = include_str!("../template/rust.toml");
-const GENERIC_TEMPLATE: &str = include_str!("../template/example.toml");
 
 /// Initializes an `atomic.toml` file using an embedded template.
 ///
@@ -248,37 +169,6 @@ pub fn start_init(template_name: &str) -> io::Result<()> {
     file.write_all(contents.as_bytes())?;
 
     println!("✅ Created atomic.toml using '{}' template.", template_name);
-    Ok(())
-}
-
-/// Returns the first valid example file found: rust.toml or example.toml
-fn find_template_file() -> io::Result<PathBuf> {
-    let candidates = [
-        Path::new("example/rust.toml"),
-        Path::new("example/example.toml"),
-    ];
-
-    for candidate in candidates {
-        if candidate.exists() {
-            return Ok(candidate.to_path_buf());
-        }
-    }
-
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        "No template file found in ./example/",
-    ))
-}
-
-pub fn save_template(name: &str, source: &str) -> io::Result<()> {
-    let Some(path) = user_template_path(name) else {
-        return Err(io::Error::new(io::ErrorKind::Other, "Could not resolve config directory"));
-    };
-
-    std::fs::create_dir_all(path.parent().unwrap())?;
-    std::fs::copy(source, &path)?;
-
-    println!("✅ Saved template as '{}'", path.display());
     Ok(())
 }
 
@@ -449,8 +339,7 @@ fn run_table_command(table: &toml::value::Table, label: &str) {
         send_command(after);
     }
 }
- 
- 
+
 // -------------
 // TOP LEVEL VALIDATOR
 // -------------
@@ -480,7 +369,6 @@ pub fn validate_toml_schema(toml: &Value) -> Result<(), Vec<String>> {
         Err(errors)
     }
 }
-
 
 // -------------
 // CUSTOM COMMANDS
@@ -567,10 +455,7 @@ fn validate_plugin_entry(name: &str, map: &toml::value::Table, errors: &mut Vec<
         };
 
         if !valid {
-            errors.push(format!(
-                "[plugin.{}] has invalid key '{}'",
-                name, k
-            ));
+            errors.push(format!("[plugin.{}] has invalid key '{}'", name, k));
         }
     }
 }

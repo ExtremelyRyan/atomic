@@ -3,6 +3,7 @@
 mod cli;
 mod git;
 mod plugin;
+mod template;
 mod toml;
 
 fn main() {

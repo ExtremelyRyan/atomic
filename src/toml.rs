@@ -36,55 +36,75 @@ where
     toml::from_str(&contents).ok()
 }
 
-/// Parses a TOML file and returns a vector of all the keys present in it.
-/// # Arguments
-///
-/// * `filename` - A string slice that holds the path to the TOML file.
-///
-/// # Returns
-/// A vector of strings containing all the keys found in the TOML file.
-///
-/// # Errors
-/// This function returns an empty vector if it encounters any errors while reading or parsing the TOML file.
-pub fn get_toml_keys(contents: Value) -> Vec<String> {
-    let mut keys = Vec::new();
-    collect_keys("", &contents, &mut keys);
-    keys
-}
+/// Prints all user-accessible command keys defined in atomic.toml,
+/// grouped by section ([default], [custom], [plugin]).
+/// Also prints descriptions if the user defined a `desc` field.
+pub fn list_keys() {
+    match get_toml_content("atomic.toml") {
+        Some(toml) => {
+            let mut found = false;
 
-/// Recursively collects all keys present in a TOML value.
-///
-/// This function is used internally by `get_toml_keys` to traverse the TOML structure recursively
-/// and collect all keys into the provided vector.
-///
-/// # Arguments
-///
-fn collect_keys(prefix: &str, value: &Value, keys: &mut Vec<String>) {
-    match value {
-        Value::Table(table) => {
-            for (key, val) in table {
-                let new_prefix = if prefix.is_empty() {
-                    key.clone()
-                } else {
-                    key.to_string()
-                };
-                collect_keys(&new_prefix, val, keys);
+            // --- [default] section ---
+            // These are simple key-value pairs like build = "cargo build"
+            if let Some(defaults) = toml.get("default").and_then(|v| v.as_table()) {
+                println!("[default]");
+                for key in defaults.keys() {
+                    println!("  - {}", key); // Just print the command name (no description support here yet)
+                }
+                found = true;
+            }
+
+            // --- [custom] section ---
+            // These can be either simple string/array commands or full tables with hooks and descriptions
+            if let Some(custom) = toml.get("custom").and_then(|v| v.as_table()) {
+                println!("[custom]");
+                for (key, val) in custom.iter() {
+                    match val {
+                        // If the command is a full table, try to extract and show the description
+                        toml::Value::Table(inner) => {
+                            let desc = inner
+                                .get("desc")
+                                .and_then(|d| d.as_str())
+                                .unwrap_or("<no description>");
+                            println!("  - {:<12} {}", key, desc);
+                        }
+
+                        // If the command is a raw string or array (e.g., build = "cargo build")
+                        toml::Value::String(_) | toml::Value::Array(_) => {
+                            println!("  - {:<12} <no description>", key);
+                        }
+
+                        // Ignore unexpected formats
+                        _ => {}
+                    }
+                }
+                found = true;
+            }
+
+            // --- [plugin] section ---
+            // Plugins are scripts, often run with --plugin <name>. We show their description if available.
+            if let Some(plugins) = toml.get("plugin").and_then(|v| v.as_table()) {
+                println!("[plugin]");
+                for (key, val) in plugins.iter() {
+                    let desc = val
+                        .as_table()
+                        .and_then(|t| t.get("desc"))
+                        .and_then(|d| d.as_str())
+                        .unwrap_or("<no description>");
+                    println!("  - {:<12} {}", key, desc);
+                }
+                found = true;
+            }
+
+            // If no valid sections were found at all
+            if !found {
+                eprintln!("No commands found in atomic.toml.");
             }
         }
-        _ => {
-            keys.push(prefix.to_string());
-        }
-    }
-}
 
-pub fn _table_lookup<'a>(value: &'a Value, table_name: &str, key: &str) -> Option<&'a Value> {
-    // Check if the value is a table
-    if let Value::Table(table) = value {
-        // Check if the specified table exists
-        if let Some(Value::Table(inner_table)) = table.get(table_name) {
-            // Lookup the key within the table
-            return inner_table.get(key);
+        // Couldn’t read or parse the atomic.toml file
+        None => {
+            eprintln!("Failed to read atomic.toml.");
         }
     }
-    None
 }
