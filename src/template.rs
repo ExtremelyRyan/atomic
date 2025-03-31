@@ -1,4 +1,5 @@
 //! template.rs
+//! 
 
 use std::{
     io,
@@ -17,7 +18,7 @@ pub fn user_template_path(name: &str) -> Option<PathBuf> {
     )
 }
 
-pub fn save_template(name: &str, source: &str) -> io::Result<()> {
+pub fn _save_template(name: &str, source: &str) -> io::Result<()> {
     let Some(path) = user_template_path(name) else {
         return Err(io::Error::new(
             io::ErrorKind::Other,
@@ -33,7 +34,7 @@ pub fn save_template(name: &str, source: &str) -> io::Result<()> {
 }
 
 /// Returns the first valid example file found: rust.toml or example.toml
-fn find_template_file() -> io::Result<PathBuf> {
+fn _find_template_file() -> io::Result<PathBuf> {
     let candidates = [
         Path::new("example/rust.toml"),
         Path::new("example/example.toml"),

@@ -93,7 +93,7 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 [custom.chain]
 command = ["check", "tw", "clippy_max"]
 ```
-**Note**: no two keywords can be the same
+**Note**: no two command keywords can be the same
 
 Here's the short on setting up a new custom command
 
@@ -163,12 +163,12 @@ Quickly generate starter configs:
 
 ```bash
 atomic init --template rust
-atomic init --template default
+atomic init --template example
 ```
 
 Available templates:
 - `rust`
-- `default`
+- `example`
 
 ---
 

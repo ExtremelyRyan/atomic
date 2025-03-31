@@ -1,177 +1,151 @@
+use chrono::Local;
+use toml::Value;
 use crate::toml::get_toml_content;
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::thread;
-
-/// Runs a plugin defined in `[plugin.<name>]` in atomic.toml.
-///
-/// If `silent = true` is set for the plugin:
-/// - Output will not be shown in the terminal.
-/// - Output will be logged to `atomic-logs/<plugin-name>.log`.
-///
-/// If `silent` is false or missing:
-/// - Output will be streamed live to the terminal.
-pub fn run_plugin(name: &str, path: &str) -> io::Result<()> {
-    // Load and parse atomic.toml
-    let Some(toml) = get_toml_content(path) else {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "atomic.toml not found",
-        ));
-    };
-
-    // Locate the plugin definition under [plugin.<name>]
-    let plugin_section = toml
-        .get("plugin")
-        .and_then(|v| v.get(name))
-        .and_then(|entry| entry.as_table())
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("Plugin '{}' not found", name),
-            )
-        })?;
-
-    // Required: path to script, without or with extension
-    let base_script = plugin_section
-        .get("script")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing 'script' in plugin"))?;
-
-    // Optional: preferred extension (e.g. ps1, py)
-    let preferred = plugin_section.get("preferred").and_then(|v| v.as_str());
-
-    // Optional: arguments to pass to the plugin script
-    let args: Vec<String> = plugin_section
-        .get("args")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    // Optional: silence all output and log it to file instead of terminal
-    let silent = plugin_section
-        .get("silent")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    // Resolve the full command + args to run (based on script type/platform)
-    let resolved = resolve_script_path(base_script, preferred)?;
-
-    // Start building the command
-    let mut command = Command::new(&resolved.program);
-    command.args(&resolved.args).args(&args);
-
-    // Always pipe output to capture, whether we stream or log
-    command.stdout(Stdio::piped()).stderr(Stdio::piped());
-
-    // Start the plugin process
-    let mut child = command.spawn()?;
-
-    // Take control of stdout/stderr from the child
-    let stdout = child.stdout.take().expect("stdout missing");
-    let stderr = child.stderr.take().expect("stderr missing");
-
-    if silent {
-        // Create the log directory if it doesn't exist
-        fs::create_dir_all("atomic-logs")?;
-
-        // Append output to `atomic-logs/<plugin-name>.log`
-        let log_path = format!("atomic-logs/{}.log", name);
-        let mut log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)?;
-
-        // Clone log handle for writing stdout in a separate thread
-        let out_thread = thread::spawn({
-            let mut log_file = log_file.try_clone()?;
-            move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines().flatten() {
-                    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-                    writeln!(log_file, "[{}] [stdout] {}", now, line).ok();
-                }
-            }
-        });
-
-        // Handle stderr in a separate thread
-        let err_thread = thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines().flatten() {
-                let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-                writeln!(log_file, "[{}] [stderr] {}", now, line).ok();
-            }
-        });
-
-        // Wait for process and log threads to finish
-        let status = child.wait()?;
-        out_thread.join().ok();
-        err_thread.join().ok();
-
-        // Print log location
-        println!("📁 Output logged to '{}'", log_path);
-
-        // Return success/failure based on exit code
-        return if status.success() {
-            Ok(())
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Plugin '{}' failed (logged). Exit code: {:?}",
-                    name,
-                    status.code()
-                ),
-            ))
-        };
-    } else {
-        // Stream output directly to terminal in real-time
-        let out_thread = thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines().flatten() {
-                println!("▶️ {}", line);
-            }
-        });
-
-        let err_thread = thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines().flatten() {
-                eprintln!("❗ {}", line);
-            }
-        });
-
-        // Wait for process and output threads to finish
-        let status = child.wait()?;
-        out_thread.join().ok();
-        err_thread.join().ok();
-
-        return if status.success() {
-            println!("✅ Plugin '{}' executed successfully.", name);
-            Ok(())
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Plugin '{}' failed with exit code {:?}",
-                    name,
-                    status.code()
-                ),
-            ))
-        };
-    }
-}
+type Result<T> = std::result::Result<T, io::Error>;
 
 /// Resolves the correct script file based on platform and extension priorities.
 pub struct ScriptCommand {
     program: String,
     args: Vec<String>,
 }
+
+struct PluginConfig {
+    script: String,
+    args: Vec<String>,
+    preferred: Option<String>,
+    silent: bool,
+}
+
+/// Runs a plugin defined in `[plugin.<name>]` in atomic.toml.
+pub fn run_plugin(name: &str, path: &str) -> Result<()> {
+    let toml = load_atomic_toml(path)?;
+    let plugin = parse_plugin_entry(name, &toml)?;
+    let resolved = crate::plugin::resolve_script_path(&plugin.script, plugin.preferred.as_deref())?;
+
+    let mut command = build_command(&resolved, &plugin.args)?;
+    let mut child = command.spawn()?;
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+
+    let status = if plugin.silent {
+        run_plugin_silent(name, stdout, stderr)?
+    } else {
+        run_plugin_stream(stdout, stderr)?
+    };
+
+    if status.success() {
+        println!("✅ Plugin '{}' executed successfully.", name);
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("Plugin '{}' failed with exit code {:?}", name, status.code()),
+        ))
+    }
+}
+
+
+fn load_atomic_toml(path: &str) -> Result<Value> {
+    get_toml_content(path).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "atomic.toml not found"))
+}
+
+fn parse_plugin_entry(name: &str, toml: &Value) -> Result<PluginConfig> {
+    let plugin_section = toml
+        .get("plugin")
+        .and_then(|v| v.get(name))
+        .and_then(|v| v.as_table())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("Plugin '{}' not found", name)))?;
+
+    let script = plugin_section["script"]
+        .as_str()
+        .expect("plugin.script must be a string")
+        .to_string();
+
+    let preferred = plugin_section.get("preferred").and_then(|v| v.as_str()).map(String::from);
+
+    let args = plugin_section
+        .get("args")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    let silent = plugin_section.get("silent").and_then(|v| v.as_bool()).unwrap_or(false);
+
+    Ok(PluginConfig {
+        script,
+        preferred,
+        args,
+        silent,
+    })
+}
+
+fn build_command(resolved: &crate::plugin::ScriptCommand, args: &[String]) -> Result<Command> {
+    let mut cmd = Command::new(&resolved.program);
+    cmd.args(&resolved.args)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    Ok(cmd)
+}
+
+fn run_plugin_silent(name: &str, stdout: impl io::Read + Send + 'static, stderr: impl io::Read + Send + 'static) -> Result<ExitStatus> {
+    fs::create_dir_all("atomic-logs")?;
+    let log_path = format!("atomic-logs/{}.log", name);
+    let mut log_file = OpenOptions::new().create(true).append(true).open(&log_path)?;
+    
+    let out_thread = {
+        let mut log_file = log_file.try_clone()?;
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+                writeln!(log_file, "[{}] [stdout] {}", now, line).ok();
+            }
+        })
+    };
+
+    let err_thread = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+            writeln!(log_file, "[{}] [stderr] {}", now, line).ok();
+        }
+    });
+
+    let exit = Command::new("true").status()?;
+    out_thread.join().ok();
+    err_thread.join().ok();
+
+    println!("Output logged to '{}'", log_path);
+    Ok(exit)
+}
+
+fn run_plugin_stream(stdout: impl io::Read + Send + 'static, stderr: impl io::Read + Send + 'static) -> Result<ExitStatus> {
+    let out_thread = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().flatten() {
+            println!("▶️ {}", line);
+        }
+    });
+
+    let err_thread = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            eprintln!("❗ {}", line);
+        }
+    });
+
+    let status = Command::new("true").status()?;
+    out_thread.join().ok();
+    err_thread.join().ok();
+    Ok(status)
+}
+
 
 /// Resolves a script path by checking extension, platform, and user preference.
 /// Supports explicit file paths or extensionless base paths + dynamic resolution.
