@@ -1,6 +1,8 @@
 use std::{fs::read_to_string, path::Path};
 use toml::Value;
 
+use crate::schema::validate_toml_schema;
+
 pub fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
     // Directly check if the key exists at the root level
     if let Some(table) = parsed_toml.as_table() {
@@ -35,6 +37,45 @@ where
     let contents = read_to_string(atomic.as_ref()).expect("Unable to read atomic file");
     toml::from_str(&contents).ok()
 }
+
+/// Loads and validates the `atomic.toml` configuration file.
+///
+/// - Ensures the file exists
+/// - Parses it as TOML
+/// - Runs schema validation
+///
+/// # Arguments
+/// * `path` - Path to the `atomic.toml` file
+///
+/// # Returns
+/// * `Some(Value)` if the file was loaded and valid
+/// * `None` if any step failed (with error output to stderr)
+pub fn load_and_validate_toml(path: &Path) -> Option<Value> {
+    // Check that the file exists
+    if !path.exists() {
+        eprintln!("❌ atomic.toml not found at {}", path.display());
+        return None;
+    }
+
+    // Try to parse the TOML file
+    let Some(toml) = get_toml_content(path) else {
+        eprintln!("❌ Failed to parse '{}'. Is it valid TOML?", path.display());
+        return None;
+    };
+
+    // Validate the structure of the TOML
+    if let Err(errors) = validate_toml_schema(&toml) {
+        eprintln!("❌ atomic.toml failed validation:");
+        for error in errors {
+            eprintln!("  - {}", error);
+        }
+        return None;
+    }
+
+    Some(toml)
+}
+
+
 
 /// Prints all user-accessible command keys defined in atomic.toml,
 /// grouped by section ([default], [custom], [plugin]).

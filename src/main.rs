@@ -5,6 +5,7 @@ mod git;
 mod plugin;
 mod template;
 mod toml;
+mod schema;
 
 fn main() {
     cli::start_cli();
