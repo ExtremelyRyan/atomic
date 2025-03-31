@@ -20,6 +20,7 @@
 #   cargo build || cargo clippy
 
 
+
 [custom.check]
 command = "cargo check"
 
@@ -40,10 +41,11 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 # Chain multiple commands, declared or raw
 [custom.chain]
 command = ["check", "tw", "cargo fmt"]
+desc = "runs custom check, test workspace, and cargo fmt"
 
 
 [plugin.generate-docs]
-script = "./scripts/test"         # base path (no extension)
+script = "./scripts/test.py" 
 args = ["hello", "from", "Atomic!"] 
 silent = true   # optional, defaults to false
 

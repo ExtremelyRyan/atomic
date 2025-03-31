@@ -22,7 +22,7 @@ fn cli() -> Command {
                 .long("list")
                 .help("List all commands found in atomic.toml")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["init", "CMD", "template"]),
+                .conflicts_with_all(["init", "CMD"]),
         )
         .arg(
             Arg::new("init")
@@ -36,48 +36,54 @@ fn cli() -> Command {
             Arg::new("CMD")
                 .help("Run a command listed in atomic.toml")
                 .index(1)
-                .conflicts_with_all(["list", "init", "template"]),
-        )
-        .arg(
-            Arg::new("template")
-                .long("template")
-                .help("Choose a template: 'rust' or 'default'")
-                .value_name("TEMPLATE")
-                .requires("init")
-                .conflicts_with_all(["list", "CMD"])
-                .value_parser(["rust", "default"]),
+                .required(false)
+                .conflicts_with_all(["list", "init"]),
         )
         .arg(
             Arg::new("PLUGIN")
                 .help("Run a plugin defined in [plugin]")
+                .short('p')
                 .long("plugin")
                 .value_name("PLUGIN_NAME")
-                .conflicts_with_all(["list", "init", "CMD", "template"]),
+                .conflicts_with_all(["list", "init", "CMD"]),
         )
+        // .arg(
+        //     Arg::new("template")
+        //         .long("template")
+        //         .help("Choose a template: 'rust', 'default', or a user-defined one")
+        //         .value_name("TEMPLATE")
+        //         .required(false)
+        //         .conflicts_with("CMD"), // Simpler and avoids requires_if issues
+        // )
+        // .subcommand(
+        //     Command::new("template")
+        //         .about("Manage custom atomic.toml templates")
+        //         .subcommand(
+        //             Command::new("save")
+        //                 .about("Save the current atomic.toml as a reusable template")
+        //                 .arg(
+        //                     Arg::new("NAME")
+        //                         .help("Name to save the template as")
+        //                         .required(true)
+        //                         .index(1),
+        //                 ),
+        //         ),
+        // )
         .arg_required_else_help(true)
 }
+
+
 
 /// Main CLI entry point — handles argument parsing and command dispatch
 pub fn start_cli() {
     let matches = cli().get_matches();
 
-    // See if the user passed --init to create an atomic.toml file
+    // Top-level flags and arguments
     let init_selected = matches.get_one::<bool>("init").copied().unwrap_or(false);
-
-    // Check if they passed --list to print all command keys
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
-
-    // This grabs a positional command like `atomic build`
     let cmd = matches.get_one::<String>("CMD");
-
-    // This grabs the plugin name if they passed --plugin <name>
     let plugin_name = matches.get_one::<String>("PLUGIN");
 
-    // If --init was used, see if they passed --template (default to "default" if not)
-    let template_name = matches
-        .get_one::<String>("template")
-        .map(String::as_str)
-        .unwrap_or("default");
 
     // We'll use this to track whether a command or plugin actually ran
     let mut command_ran = false;
@@ -85,13 +91,7 @@ pub fn start_cli() {
     // If the user just wants to see available commands, print them and exit
     if list_selected {
         list_keys();
-    }
-    // If --init was used, try to write a new atomic.toml template to the current folder
-    else if init_selected {
-        if let Err(err) = start_init(template_name) {
-            eprintln!("❌ Failed to initialize atomic.toml: {}", err);
-        }
-    }
+    } 
     // If they passed a command like `atomic check`, run it
     else if let Some(cmd) = cmd {
         run_command(cmd, "atomic.toml");
@@ -100,7 +100,7 @@ pub fn start_cli() {
     // If they passed a plugin with --plugin <name>, run that
     else if let Some(plugin) = plugin_name {
         if let Err(err) = run_plugin(plugin, "atomic.toml") {
-            eprintln!("❌ Plugin '{}' failed: {}", plugin, err);
+            eprintln!("Plugin '{}' failed: {}", plugin, err);
         } else {
             command_ran = true;
         }
@@ -118,21 +118,84 @@ pub fn start_cli() {
     }
 }
 
-fn list_keys() {
+/// Prints all user-accessible command keys defined in atomic.toml,
+/// grouped by section ([default], [custom], [plugin]).
+/// Also prints descriptions if the user defined a `desc` field.
+pub fn list_keys() {
     match get_toml_content("atomic.toml") {
-        Some(val) => {
-            let keys = get_toml_keys(val);
-            if !keys.is_empty() {
-                for k in keys {
-                    println!("{}", k);
+        Some(toml) => {
+            let mut found = false;
+
+            // --- [default] section ---
+            // These are simple key-value pairs like build = "cargo build"
+            if let Some(defaults) = toml.get("default").and_then(|v| v.as_table()) {
+                println!("[default]");
+                for key in defaults.keys() {
+                    println!("  - {}", key); // Just print the command name (no description support here yet)
                 }
-            } else {
-                eprintln!("Error reading atomic.toml");
+                found = true;
+            }
+
+            // --- [custom] section ---
+            // These can be either simple string/array commands or full tables with hooks and descriptions
+            if let Some(custom) = toml.get("custom").and_then(|v| v.as_table()) {
+                println!("[custom]");
+                for (key, val) in custom.iter() {
+                    match val {
+                        // If the command is a full table, try to extract and show the description
+                        toml::Value::Table(inner) => {
+                            let desc = inner
+                                .get("desc")
+                                .and_then(|d| d.as_str())
+                                .unwrap_or("<no description>");
+                            println!("  - {:<12} {}", key, desc);
+                        }
+
+                        // If the command is a raw string or array (e.g., build = "cargo build")
+                        toml::Value::String(_) | toml::Value::Array(_) => {
+                            println!("  - {:<12} <no description>", key);
+                        }
+
+                        // Ignore unexpected formats
+                        _ => {}
+                    }
+                }
+                found = true;
+            }
+
+            // --- [plugin] section ---
+            // Plugins are scripts, often run with --plugin <name>. We show their description if available.
+            if let Some(plugins) = toml.get("plugin").and_then(|v| v.as_table()) {
+                println!("[plugin]");
+                for (key, val) in plugins.iter() {
+                    let desc = val
+                        .as_table()
+                        .and_then(|t| t.get("desc"))
+                        .and_then(|d| d.as_str())
+                        .unwrap_or("<no description>");
+                    println!("  - {:<12} {}", key, desc);
+                }
+                found = true;
+            }
+
+            // If no valid sections were found at all
+            if !found {
+                eprintln!("No commands found in atomic.toml.");
             }
         }
-        _ => eprintln!("Error reading atomic.toml"),
+
+        // Couldn’t read or parse the atomic.toml file
+        None => {
+            eprintln!("Failed to read atomic.toml.");
+        }
     }
 }
+
+pub fn user_template_path(name: &str) -> Option<PathBuf> {
+    let base = dirs::config_dir()?; // ~/.config or %APPDATA%
+    Some(base.join("atomic").join("templates").join(format!("{name}.toml")))
+}
+
 
 const RUST_TEMPLATE: &str = include_str!("../template/rust.toml");
 const GENERIC_TEMPLATE: &str = include_str!("../template/example.toml");
@@ -169,10 +232,17 @@ pub fn start_init(template_name: &str) -> io::Result<()> {
         }
     }
 
-    // Select which embedded template to use
-    let contents = match template_name {
-        "rust" => RUST_TEMPLATE,
-        _ => GENERIC_TEMPLATE,
+    let contents = if let Some(user_path) = user_template_path(template_name) {
+        if user_path.exists() {
+            std::fs::read_to_string(user_path)?
+        } else {
+            match template_name {
+                "rust" => RUST_TEMPLATE.to_string(),
+                _ => GENERIC_TEMPLATE.to_string(),
+            }
+        }
+    } else {
+        GENERIC_TEMPLATE.to_string()
     };
 
     // Write to file
@@ -200,6 +270,18 @@ fn find_template_file() -> io::Result<PathBuf> {
         io::ErrorKind::NotFound,
         "No template file found in ./example/",
     ))
+}
+
+pub fn save_template(name: &str, source: &str) -> io::Result<()> {
+    let Some(path) = user_template_path(name) else {
+        return Err(io::Error::new(io::ErrorKind::Other, "Could not resolve config directory"));
+    };
+
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::copy(source, &path)?;
+
+    println!("✅ Saved template as '{}'", path.display());
+    Ok(())
 }
 
 /// Entry point to run a named command from the `atomic.toml` configuration.
