@@ -114,14 +114,7 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     let tree = repo.find_tree(tree_id)?;
     let parent_commit = repo.find_commit(repo.head()?.peel_to_commit()?.id())?;
 
-    repo.commit(
-        Some(branch),
-        &user,
-        &user,
-        &message,
-        &tree,
-        &[&parent_commit],
-    )?;
+    repo.commit(Some(branch), &user, &user, &message, &tree, &[&parent_commit])?;
 
     Ok(())
 }

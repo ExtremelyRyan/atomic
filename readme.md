@@ -7,7 +7,11 @@
 </h1>
 
 <div align="center">
-  <h1>Atomic</h1>  
+  <h1>Atomic</h1>
+  <br />
+  <a href="#about"><strong>Explore the screenshots »</strong></a>
+  <br />
+  <br />
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
   <a href="https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+">Ask a Question</a>
@@ -26,162 +30,70 @@
 
 Atomic is a command-line tool designed to streamline the process of making "atomic" commits. It addresses the challenge of remembering to save frequent snapshots of your code without disrupting your workflow. By defining custom commands in an atomic.toml file located in your project's root directory, Atomic allows you to execute your desired actions while automatically creating local commit snapshots in Git. This ensures that your changes are captured efficiently and without interrupting your focus.
 
-### **Built With**
+### Built With
 
-**Rust**, because I like it. 
+Rust, because I like it.Also with
+[clap](https://lib.rs/crates/clap),
+[git2](https://lib.rs/cratesgit2),
+[thiserror](https://lib.rs/crates/thiserror),
+[toml](https://lib.rs/crates/toml)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Rust MSRV: 1.74
-
-- Windows 10/11
-
-- not tested on linux (yet)
-
-- any scripting language(s) you intend on using for pre/post hooks
+Rust MSRV: 1.74
+Windows 10/11
+not tested on linux (yet)
 
 ### Installation
 
+> **[?]**
+> TODO
 
-1. **Install from Source**
+## Usage
 
-```bash
-git clone https://github.com/ExtremelyRyan/atomic.git
-cd atomic
-cargo install --path .
-```
-
-2. **From Crates.io**
-
-```bash
-cargo install cargo-atomic
-```
-
-
-## Usage 
+### Default Commands
+**[!]** all commands are modifiable from the project root `atomic.toml` file.
 
 - For setting up a new project simply run `atomic init` in your project root directory, which will create a 
 `atomic.toml` file with some defaults (for rust commands), as well as a few examples.
 
+the following commands are considered the "default" that will apply to most projects. 
 
+- `atomic run` 
+- `atomic test` 
+- `atomic build` 
+
+this is how they appear in the toml file
+```toml
+# default commands
+[default]
+build = "echo build"
+test  = "echo test"
+run   = "echo run"
+```
 
 ### Custom Commands
 custom commands are for everything else you need to do that you **also want a local git commit to happen.**
 
 examples from the template file
-```toml 
-[custom.check]
-command = "cargo check"
-
-[custom.clippy]
-before  = "echo Running Clippy"
-command = "cargo clippy"
-after   = "echo Clippy finished"
-
-[custom.tw]
-command = "cargo test --all-features --workspace"
-
-[custom.clippy_max]
-command = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
-
-[custom.doc]
-command = "cargo doc --no-deps --document-private-items --all-features --workspace --open"
-
-# Chain multiple commands, declared or raw
-[custom.chain]
-command = ["check", "tw", "clippy_max"]
-```
-**Note**: no two command keywords can be the same
-
-Here's the short on setting up a new custom command
-
 ```toml
-# Your new atomic command
-# replace "test" with what you want to call this action
-# i.e. Atomic test
-[custom.test]
-before = "path/to/script" # prehook action
-command = "cargo test" # main command
-after = "path/to/script" or command line action # i.e. some clean up commands 
+# custom commands go here
+[custom]
+check      = "cargo check"
+check      = "echo check2"
+clippy     = "cargo clippy"
+clippy_max = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
+doc        = "cargo doc --no-deps --document-private-items --all-features --workspace"
+test-all   = "cargo test --all-features --workspace"
 
+# chain several custom commands together, regardless if they are declared.
+chain = ["check", "clippy", "cargo fmt"]
 ```
+Note: if two keys are identical, atomic will default to execute the first command found.
 
 
-### Run a plugin:
-
-```bash
-atomic --plugin docs
-```
-
-If the plugin has `silent = true`, output is logged to `atomic-logs/docs.log`.
-
-here's an example"
-```toml
-[plugin.generate-docs]
-script = "./scripts/test.py" 
-args = ["hello", "from", "Atomic!"] 
-silent = true   # optional, defaults to false
-```
-
-
-## 💾 Auto-committing
-
-After running a command or plugin, Atomic will automatically commit any changes in the repository with a timestamp-based commit message. The commit message will look like this:
-
-```
-[2024-03-27 13:52:12] command: cargo fmt
-```
-
-You don’t need to do anything else — it just works. this helps
-you stay focused on what you're building and not worry about saving your progress. 
-
-Supports:
-- `.sh`, `.bat`, `.cmd`, `.ps1`, `.py`, `.exe`
-- Auto-switches based on OS
-- Log output to `atomic-logs/<plugin>.log` when `silent = true` on any custom command. 
-
----
-
-## 🔁 Pre/Post Hooks
-
-Any custom command can have a `before` or `after` script:
-
-```toml
-[custom.test]
-before  = "echo Starting tests"
-command = "cargo test"
-after   = "echo All done"
-```
-
----
-
-## 🧠 Templates
-
-Quickly generate starter configs:
-
-```bash
-atomic init --template rust
-atomic init --template example
-```
-
-Available templates:
-- `rust`
-- `example`
-
----
-
-## 💬 Flags
-
-| Flag            | Description                             |
-|-----------------|-----------------------------------------|
-| `--init`        | Create a new `atomic.toml` file         |
-| `--template`    | Select a template to initialize with    |
-| `--list`        | List all available commands             |
-| `--plugin`      | Run a plugin defined in `atomic.toml`   |
-
----
 
 
 ## Roadmap
@@ -209,4 +121,4 @@ If you want to say **thank you** or/and support active development of Atomic:
 
 ## Authors & contributors
 
-Created by [ExtremelyRyan](https://github.com/ExtremelyRyan).
+The original setup of this repository is by [Ryan](https://github.com/ExtremelyRyan).

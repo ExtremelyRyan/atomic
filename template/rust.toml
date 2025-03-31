@@ -26,15 +26,8 @@ test  = "echo test"
 run   = "echo run"
 
 # Custom commands with optional hooks
-
 [custom.check]
 command = "cargo check"
-# Optional:
-#   desc    = "Description of what this command does"
-#   before  = "Run this command first"
-#   after   = "Run this command after 'command'"
-#   command = Can be a string or array (for chaining)
-#   silent  = true (optional, only affects plugin logging, ignored here)
 
 [custom.clippy]
 before  = "echo Running Clippy"
@@ -53,17 +46,3 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 # Chain multiple commands, declared or raw
 [custom.chain]
 command = ["check", "clippy", "cargo fmt"]
-
-# Plugins execute external scripts or binaries with optional arguments
-[plugin.generate-docs]
-script = "./scripts/test.py"
-args = ["hello", "from", "Atomic!"]
-silent = true         # Optional (default: false) — if true, log to file instead of printing
-desc = "Generates documentation from source files"  # Optional (for CLI listing)
-
-[plugin.cleanup]
-script = "./scripts/clean_temp.bat"
-# Optional:
-#   args   = [ "any", "arguments" ]
-#   silent = true or false
-#   desc   = "Cleanup temporary build files"

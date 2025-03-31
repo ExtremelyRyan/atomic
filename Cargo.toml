@@ -25,7 +25,6 @@ path = "src/main.rs"
 [dependencies]
 chrono = "0.4.40"
 clap = "4.5.34"
-dirs = "6.0.0"
 git2 = "0.20.1"
 thiserror = "2.0.12"
 toml = "0.8.12"
