@@ -85,6 +85,24 @@ pub fn _get_git_info() -> Result<(String, String, u64)> {
     Ok((feature, desc, issue_num))
 }
 
+pub fn get_current_branch() -> Result<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .map_err(|e| AtomicError::Generic(format!("Failed to detect current branch: {e}")))?;
+
+    if !output.status.success() {
+        return Err(AtomicError::Generic(format!(
+            "Failed to get current branch: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let branch = String::from_utf8(output.stdout)
+        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in branch name: {e}")))?;
+    Ok(branch.trim().to_owned())
+}
+
 pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     let repo = Repository::open(".")?;
     let mut index = repo.index()?;

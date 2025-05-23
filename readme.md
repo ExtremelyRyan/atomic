@@ -1,4 +1,3 @@
-
 <h1 align="center">
   <a href="https://github.com/ExtremelyRyan/atomic">
     <!-- Please provide path to your logo here -->
@@ -25,9 +24,9 @@
 # Atomic
 
 **Atomic** is a fast, minimal CLI tool that automates local Git commits around the scripts you already run — tests, formatters, docs, builds, anything. Define commands once in a TOML file. Let Atomic run them and snapshot your work with zero friction.
-  
 
 Use it as:
+
 - A commit automation tool
 - A task runner that remembers to save your work
 - A Git-integrated wrapper for dev scripts
@@ -127,16 +126,38 @@ If `silent = true`, logs go to `atomic-logs/cleanup.log`.
 
 ### Atomic Commands
 
-| Command                     | Description                                                |
-|-----------------------------|------------------------------------------------------------|
-| `atomic init`               | Create an example `atomic.toml` with built-in Rust tasks   |
-| `atomic init --template rust` | Use the built-in Rust starter template                  |
-| `atomic <command>`          | Run a `[custom.<command>]` entry from your config         |
-| `atomic --plugin <name>`    | Run a `[plugin.<name>]` script                            |
-| `atomic --list`             | List all available commands from your TOML                |
-| `atomic config show`        | Show resolved TOML config in the terminal                 |
+| Command                           | Description                                                                                                        |
+|------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `atomic init`                     | Create an example `atomic.toml` with built-in Rust tasks                                                           |
+| `atomic init --template rust`      | Use the built-in Rust starter template                                                                             |
+| `atomic <command>`                | Run a `[custom.<command>]` entry from your config                                                                  |
+| `atomic --plugin <name>`          | Run a `[plugin.<name>]` script                                                                                     |
+| `atomic --list`                   | List all available commands from your TOML                                                                         |
+| `atomic config show`              | Show resolved TOML config in the terminal                                                                          |
+| `atomic remote "message"`         | **Stage, squash, and force-push all changes as a single commit with your message (replaces all remote history!)**  |
 
-> You can also use kebab-case or snake_case for commands — both are supported.
+> You can use kebab-case or snake_case for commands—both are supported.
+
+---
+
+#### How `atomic remote` Works
+
+- **Auto-stages** all changes (staged and unstaged).
+- **Commits** them if needed, using your message.
+- **Squashes** all your local commits into one, using your message.
+- **Force-pushes** the branch, so the remote will always show just your one commit.
+
+⚠️ **WARNING:**  
+`atomic remote` force-pushes and rewrites your branch history on the remote.
+**Never use on shared or protected branches!**
+Always communicate with your team before rewriting remote history.
+
+---
+
+**Examples:**
+```sh
+atomic remote "feat: add user login with OAuth"
+atomic remote "fix: final bugfix before review"
 
 ## 🗂 Templates
 
@@ -146,10 +167,12 @@ atomic init --template example
 ```
 
 Built-in templates:
+
 - `rust`
 - `example`
 
 They include:
+
 - Common Rust commands (check, clippy, test)
 - Plugin examples
 - Commented TOML
@@ -167,6 +190,7 @@ You don't have to think about `git add` or `git commit`. It just saves your prog
 ## 🔒 Script Support
 
 Works with:
+
 - `.sh`, `.bat`, `.cmd`, `.ps1`, `.py`, `.exe`
 - Shell chaining: `&&`, `||`, `;`
 - Auto OS detection

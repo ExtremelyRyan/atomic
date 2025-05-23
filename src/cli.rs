@@ -51,20 +51,36 @@ fn cli() -> Command {
                 .conflicts_with_all(["list", "init", "cmd"]),
         )
         .arg(
-Arg::new("single-commit")
-    .help("Rewrites all local commits since base as a single commit with the given message, and pushes")
-    .short('s') // Use capital S to avoid conflict with -s for squash if you want
-    .long("single-commit")
+Arg::new("remote")
+  .help(
+        "Make your branch atomic and remote-ready with one command:\n\
+        \n\
+        • Stages all changes (unstaged and staged)\n\
+        • Commits your changes if needed, using your message\n\
+        • Squashes all local commits since the base branch into a single commit (with your message)\n\
+        • Force-pushes the result to your remote branch\n\
+        \n\
+        This always results in one commit on remote, no matter how many local commits or changes you had.\n\
+        \n\
+        ⚠️ WARNING: This force-pushes and rewrites remote history!\n\
+        Use only on feature branches, never on shared or protected branches.\n\
+        \n\
+        Example:\n\
+        atomic remote \"Your summary commit message\"\n"
+    )
+    .short('r') 
+    .long("remote")
     .value_name("COMMIT_MSG")
     .conflicts_with_all(["cmd", "plugin", "init", "list"])
         )
         .arg(
             Arg::new("base")
-                .help("Base branch to squash to")
+                .help("Base branch to push changes to (defaults to current branch)")
+                .short('b')
                 .long("base")
                 .value_name("BASE_BRANCH")
                 .default_value("main")
-                .requires("single-commit"),
+                .requires("remote"),
         )
         .arg(
             Arg::new("template")
@@ -91,13 +107,16 @@ pub fn start_cli() {
     let cmd = matches.get_one::<String>("cmd");
     let plugin_name = matches.get_one::<String>("plugin");
 
-    let commit_msg = matches.get_one::<String>("single-commit");
+    let commit_msg = matches.get_one::<String>("remote");
     let base_branch = matches
         .get_one::<String>("base")
-        .map_or("main", String::as_str);
+        .map_or_else(
+            || git::get_current_branch().unwrap_or_else(|_| "main".to_string()),
+            |s| s.clone(),
+        );
 
     if let Some(msg) = commit_msg {
-        match git::summarize_and_push_commits(base_branch, msg) {
+        match git::summarize_and_push_commits(&base_branch, msg) {
             Ok(()) => println!("Successfully squashed local commits onto {base_branch}."),
             Err(e) => eprintln!("Squash failed: {e}"),
         }
