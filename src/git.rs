@@ -130,7 +130,7 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
 ///
 /// - If there are multiple local commits, collapses them all.
 /// - If there is only one local commit, it rewrites (replaces) that commit with your custom message.
-/// - Always results in exactly one new commit on the remote branch.
+/// - Always results in exactly one new commit on the remote branch, with your chosen message.
 ///
 /// # Arguments
 /// * `base_branch` - The branch to squash against (e.g., "main")
@@ -142,16 +142,9 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
 ///
 /// # Notes
 /// - If you squash and push, **all previous local commits are overwritten** on the remote!
-/// - This is equivalent to a force-push rewrite (if history has already been pushed)
-/// - Use only on feature branches, not protected/shared branches!
-///
-/// # Example
-/// ```sh
-/// atomic --squash "My single summary commit"
-/// ```
+/// - This is a force-push rewrite, and should only be used on feature branches (never protected/shared branches).
 pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()> {
     // Step 1: Find the merge-base commit between HEAD and the chosen base branch.
-    // This is the commit where your feature branch diverged from base.
     let merge_base = Command::new("git")
         .args(["merge-base", "HEAD", base_branch])
         .output()
@@ -169,7 +162,6 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
     let base_commit = base_commit.trim();
 
     // Step 2: Count how many commits exist between merge-base and HEAD.
-    // This tells us if there is anything to squash.
     let count_output = Command::new("git")
         .args(["rev-list", "--count", &format!("{base_commit}..HEAD")])
         .output()
@@ -183,12 +175,10 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
 
     // Step 3: Bail out if there are no commits to squash.
     if commit_count == 0 {
-        return Err(AtomicError::Static("No commits to squash."));
+        return Err(AtomicError::Static("No commits to squash or amend."));
     }
 
-    // Step 4: Squash strategy depends on commit count:
-    // - If more than one, do a normal squash (reset to base and re-commit)
-    // - If only one, rewrite that single commit (reset one back and recommit)
+    // Step 4: Squash or amend depending on commit count.
     if commit_count > 1 {
         // Multiple commits: reset all the way back to base (preserving changes in index),
         // and create a single new commit with user's message.
@@ -219,7 +209,7 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
         }
     }
 
-    // Push: use force-with-lease
+    // Step 5: Force-push the resulting commit to the remote branch.
     let push_status = Command::new("git")
         .args(["push", "--force-with-lease"])
         .status()
@@ -228,16 +218,6 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
         return Err(AtomicError::Static(
             "Failed to push branch after squashing/amending",
         ));
-    }
-
-    // Step 5: Push the resulting commit to the remote.
-    // By default, this will push to the currently-tracked branch.
-    let push_status = Command::new("git")
-        .args(["push"])
-        .status()
-        .map_err(|e| AtomicError::Generic(format!("Failed to run git push: {e}")))?;
-    if !push_status.success() {
-        return Err(AtomicError::Static("Failed to push branch after squashing"));
     }
 
     Ok(())
