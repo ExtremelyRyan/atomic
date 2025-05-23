@@ -9,7 +9,6 @@ mod plugin;
 mod schema;
 mod template;
 mod toml;
-
 fn main() {
     cli::start_cli();
 }

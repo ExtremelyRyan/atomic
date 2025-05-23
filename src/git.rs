@@ -337,6 +337,7 @@ mod tests {
                 "144".to_string(),
                 "adding_dark_mode
                 "
+                .trim()
                 .to_string()
             ])
         );
