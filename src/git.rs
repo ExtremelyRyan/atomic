@@ -209,30 +209,25 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
             return Err(AtomicError::Static("Failed to create the squashed commit"));
         }
     } else {
-        // Only one commit: To "rename" it, we must:
-        // - Undo the last commit (reset --soft HEAD~1, which stages all changes)
-        // - Recommit those changes with your new message (makes a new commit with a different hash/message)
-        let reset_status = Command::new("git")
-            .args(["reset", "--soft", "HEAD~1"])
+        // Only one commit since base: amend its message, even if nothing changed!
+        let amend_status = Command::new("git")
+            .args(["commit", "--amend", "-m", message])
             .status()
-            .map_err(|e| {
-                AtomicError::Generic(format!("Failed to run git reset for single commit: {e}"))
-            })?;
-        if !reset_status.success() {
-            return Err(AtomicError::Static(
-                "Failed to perform git reset --soft HEAD~1",
-            ));
+            .map_err(|e| AtomicError::Generic(format!("Failed to amend the single commit: {e}")))?;
+        if !amend_status.success() {
+            return Err(AtomicError::Static("Failed to amend the single commit"));
         }
+    }
 
-        let commit_status = Command::new("git")
-            .args(["commit", "-am", message])
-            .status()
-            .map_err(|e| {
-                AtomicError::Generic(format!("Failed to run git commit for single commit: {e}"))
-            })?;
-        if !commit_status.success() {
-            return Err(AtomicError::Static("Failed to rewrite the single commit"));
-        }
+    // Push: use force-with-lease
+    let push_status = Command::new("git")
+        .args(["push", "--force-with-lease"])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git push: {e}")))?;
+    if !push_status.success() {
+        return Err(AtomicError::Static(
+            "Failed to push branch after squashing/amending",
+        ));
     }
 
     // Step 5: Push the resulting commit to the remote.
