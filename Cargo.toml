@@ -1,6 +1,6 @@
 [package]
 name = "cargo-atomic"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Ryan"]
 description = "A CLI tool to help make local git commits easier."
@@ -23,7 +23,7 @@ name = "cargo-atomic"
 path = "src/main.rs"
 
 [dependencies]
-chrono = "0.4.40"
+chrono = "0.4.41"
 clap = "4.5.34"
 dirs = "6.0.0"
 git2 = "0.20.1"
