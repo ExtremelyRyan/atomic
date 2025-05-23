@@ -125,24 +125,11 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Squashes all local commits since the merge-base with a base branch (default: "main")
-/// into a single commit with the user-supplied message, and pushes that single commit to remote.
-///
-/// - If there are multiple local commits, collapses them all.
-/// - If there is only one local commit, it rewrites (replaces) that commit with your custom message.
-/// - Always results in exactly one new commit on the remote branch, with your chosen message.
-///
-/// # Arguments
-/// * `base_branch` - The branch to squash against (e.g., "main")
-/// * `message`     - The commit message for the squashed commit
-///
-/// # Returns
-/// * `Ok(())` on success
-/// * `Err(AtomicError)` if any git operation fails or there are no commits to squash
-///
-/// # Notes
-/// - If you squash and push, **all previous local commits are overwritten** on the remote!
-/// - This is a force-push rewrite, and should only be used on feature branches (never protected/shared branches).
+/// Squash or summarize all local changes into a single commit with a custom message and force-push.
+/// - If there are no commits, but there are staged changes, commits them first.
+/// - If there is one commit, amends the message.
+/// - If there are multiple commits, squashes to one.
+/// Always results in a single commit on remote with your message.
 pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()> {
     // Step 1: Find the merge-base commit between HEAD and the chosen base branch.
     let merge_base = Command::new("git")
@@ -168,19 +155,44 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
         .map_err(|e| AtomicError::Generic(format!("Failed to run git rev-list: {e}")))?;
     let count_str = String::from_utf8(count_output.stdout)
         .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in rev-list: {e}")))?;
-    let commit_count: usize = count_str
+    let mut commit_count: usize = count_str
         .trim()
         .parse()
         .map_err(|e| AtomicError::Generic(format!("Failed to parse commit count: {e}")))?;
 
-    // Step 3: Bail out if there are no commits to squash.
+    // Step 3: If there are no commits since base, but staged changes exist, make a commit now.
     if commit_count == 0 {
-        return Err(AtomicError::Static("No commits to squash or amend."));
+        // Check for staged changes (exit code 1 means differences, 0 means clean)
+        let staged_status = Command::new("git")
+            .args(["diff", "--cached", "--quiet"])
+            .status()
+            .map_err(|e| AtomicError::Generic(format!("Failed to check staged changes: {e}")))?;
+        if !staged_status.success() {
+            // There are staged changes—commit them!
+            let commit_status = Command::new("git")
+                .args(["commit", "-am", message])
+                .status()
+                .map_err(|e| {
+                    AtomicError::Generic(format!("Failed to commit staged changes: {e}"))
+                })?;
+            if !commit_status.success() {
+                return Err(AtomicError::Static(
+                    "Failed to create a commit from staged changes.",
+                ));
+            }
+            // We've now created one commit since base, so set commit_count to 1
+            commit_count = 1;
+        } else {
+            // No commits and nothing staged: bail out
+            return Err(AtomicError::Static(
+                "No commits or staged changes to squash/amend.",
+            ));
+        }
     }
 
     // Step 4: Squash or amend depending on commit count.
     if commit_count > 1 {
-        // Multiple commits: reset all the way back to base (preserving changes in index),
+        // Multiple commits: reset to base (preserving changes in index),
         // and create a single new commit with user's message.
         let reset_status = Command::new("git")
             .args(["reset", "--soft", base_commit])
@@ -190,7 +202,6 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
             return Err(AtomicError::Static("Failed to perform git reset --soft"));
         }
 
-        // Now commit everything with your custom message.
         let commit_status = Command::new("git")
             .args(["commit", "-am", message])
             .status()
