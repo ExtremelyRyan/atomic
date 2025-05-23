@@ -25,8 +25,8 @@ pub fn run_command<P: AsRef<Path>>(cmd: &str, atomic: P) {
     };
 
     // Attempt to find the command in the parsed TOML tables
-    let Some((_, value)) = find_key_in_tables(toml.clone(), cmd) else {
-        eprintln!("Command '{}' not found in atomic.toml", cmd);
+    let Some((_, value)) = find_key_in_tables(&toml, cmd) else {
+        eprintln!("Command '{cmd}' not found in atomic.toml");
         return;
     };
 
@@ -50,7 +50,7 @@ fn execute_resolved_command(value: Option<&Value>, cmd_name: &str, toml: &Value,
     match value {
         // Simple shell command
         Some(Value::String(s)) => {
-            println!("Resolving subcommand: {}", s);
+            println!("Resolving subcommand: {s}");
             send_command(s);
         }
 
@@ -81,7 +81,7 @@ fn execute_resolved_command(value: Option<&Value>, cmd_name: &str, toml: &Value,
 
         // Unsupported or invalid TOML structure
         _ => {
-            eprintln!("Unsupported command format for '{}'", cmd_name);
+            eprintln!("Unsupported command format for '{cmd_name}'");
         }
     }
 }
@@ -96,7 +96,7 @@ fn execute_resolved_command(value: Option<&Value>, cmd_name: &str, toml: &Value,
 /// * `toml` - The full parsed TOML config
 /// * `atomic_path` - Path to the `atomic.toml` file for recursion
 fn resolve_and_run_subcommand(sub_cmd: &str, toml: &Value, atomic_path: &Path) {
-    match find_key_in_tables(toml.clone(), sub_cmd) {
+    match find_key_in_tables(toml, sub_cmd) {
         Some((_, Some(Value::String(_) | Value::Array(_) | Value::Table(_)))) => {
             // It's a declared custom command; run it recursively
             run_command(sub_cmd, atomic_path);
@@ -128,7 +128,7 @@ fn run_table_command(table: &toml::value::Table, label: &str) {
     if let Some(main) = table.get("command").and_then(|v| v.as_str()) {
         send_command(main);
     } else {
-        eprintln!("Missing 'command' in table '{}'", label);
+        eprintln!("Missing 'command' in table '{label}'");
     }
 
     // Optional "after" hook

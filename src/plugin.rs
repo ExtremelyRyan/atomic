@@ -27,7 +27,7 @@ pub fn run_plugin(name: &str, path: &str) -> Result<()> {
     let plugin = parse_plugin_entry(name, &toml)?;
     let resolved = crate::plugin::resolve_script_path(&plugin.script, plugin.preferred.as_ref())?;
 
-    let mut command = build_command(&resolved, &plugin.args)?;
+    let mut command = build_command(&resolved, &plugin.args);
     let mut child = command.spawn()?;
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
@@ -39,7 +39,7 @@ pub fn run_plugin(name: &str, path: &str) -> Result<()> {
     };
 
     if status.success() {
-        println!("✅ Plugin '{}' executed successfully.", name);
+        println!("✅ Plugin '{name}' executed successfully.");
         Ok(())
     } else {
         Err(io::Error::new(
@@ -66,7 +66,7 @@ fn parse_plugin_entry(name: &str, toml: &Value) -> Result<PluginConfig> {
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
-                format!("Plugin '{}' not found", name),
+                format!("Plugin '{name}' not found"),
             )
         })?;
 
@@ -92,24 +92,27 @@ fn parse_plugin_entry(name: &str, toml: &Value) -> Result<PluginConfig> {
 
     let silent = plugin_section
         .get("silent")
-        .and_then(|v| v.as_bool())
+        .and_then(toml::Value::as_bool)
         .unwrap_or(false);
 
     Ok(PluginConfig {
         script,
-        preferred,
         args,
+        preferred,
         silent,
     })
 }
 
-fn build_command(resolved: &crate::plugin::ScriptCommand, args: &[String]) -> Result<Command> {
+fn build_command(
+    resolved: &crate::plugin::ScriptCommand,
+    args: &[String],
+) -> std::process::Command {
     let mut cmd = Command::new(&resolved.program);
     cmd.args(&resolved.args)
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    Ok(cmd)
+    cmd
 }
 
 fn run_plugin_silent(
@@ -118,7 +121,7 @@ fn run_plugin_silent(
     stderr: impl io::Read + Send + 'static,
 ) -> Result<ExitStatus> {
     fs::create_dir_all("atomic-logs")?;
-    let log_path = format!("atomic-logs/{}.log", name);
+    let log_path = format!("atomic-logs/{name}.log");
     let mut log_file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -128,18 +131,18 @@ fn run_plugin_silent(
         let mut log_file = log_file.try_clone()?;
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
-            for line in reader.lines().flatten() {
+            for line in reader.lines().map_while(Result::ok) {
                 let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-                writeln!(log_file, "[{}] [stdout] {}", now, line).ok();
+                writeln!(log_file, "[{now}] [stdout] {line}").ok();
             }
         })
     };
 
     let err_thread = thread::spawn(move || {
         let reader = BufReader::new(stderr);
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-            writeln!(log_file, "[{}] [stderr] {}", now, line).ok();
+            writeln!(log_file, "[{now}] [stderr] {line}").ok();
         }
     });
 
@@ -147,7 +150,7 @@ fn run_plugin_silent(
     out_thread.join().ok();
     err_thread.join().ok();
 
-    println!("Output logged to '{}'", log_path);
+    println!("Output logged to '{log_path}'");
     Ok(exit)
 }
 
@@ -157,15 +160,15 @@ fn run_plugin_stream(
 ) -> Result<ExitStatus> {
     let out_thread = thread::spawn(move || {
         let reader = BufReader::new(stdout);
-        for line in reader.lines().flatten() {
-            println!("▶️ {}", line);
+        for line in reader.lines().map_while(Result::ok) {
+            println!("▶️ {line}");
         }
     });
 
     let err_thread = thread::spawn(move || {
         let reader = BufReader::new(stderr);
-        for line in reader.lines().flatten() {
-            eprintln!("❗ {}", line);
+        for line in reader.lines().map_while(Result::ok) {
+            eprintln!("❗ {line}");
         }
     });
 
@@ -200,7 +203,7 @@ pub fn resolve_script_path(
     let candidates: Vec<_> = supported
         .iter()
         .filter_map(|ext| {
-            let full = format!("{}.{}", base_path, ext);
+            let full = format!("{base_path}.{ext}");
             if fs::metadata(&full).is_ok() {
                 Some((ext.as_str(), full))
             } else {
@@ -216,10 +219,7 @@ pub fn resolve_script_path(
             .map(|(ext, _)| *ext)
             .collect::<Vec<_>>()
             .join(", ");
-        eprintln!(
-            "⚠️ Multiple matching script types for '{}': [{}]. Using first.",
-            base_path, found
-        );
+        eprintln!("⚠️ Multiple matching script types for '{base_path}': [{found}]. Using first.");
     }
 
     // Use first match or fail
@@ -229,7 +229,7 @@ pub fn resolve_script_path(
 
     Err(io::Error::new(
         io::ErrorKind::NotFound,
-        format!("No supported script found for '{}'", base_path),
+        format!("No supported script found for '{base_path}'"),
     ))
 }
 
@@ -237,7 +237,7 @@ pub fn resolve_script_path(
 ///
 /// You can add more entries here if needed, but this covers:
 /// - Bash/shell
-/// - PowerShell and batch scripts
+/// - `PowerShell` and batch scripts
 /// - Python, Node, Deno, Ruby
 /// - Raw executables
 pub fn map_extension_to_command(full_path: String, ext: &str) -> io::Result<ScriptCommand> {
@@ -312,8 +312,7 @@ pub fn map_extension_to_command(full_path: String, ext: &str) -> io::Result<Scri
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "Unsupported script extension: .{} — define a plugin manually if needed.",
-                    unsupported
+                    "Unsupported script extension: .{unsupported} — define a plugin manually if needed."
                 ),
             ));
         }
@@ -333,9 +332,10 @@ pub fn supported_extensions(preferred: Option<&String>) -> Vec<String> {
     // Unix/Linux platform extensions
     let unix_defaults = ["sh", "py", "js", "ts", "rb", "lua", "go"];
 
-    let mut ordered = match cfg!(windows) {
-        true => Vec::with_capacity(windows_defaults.len()),
-        false => Vec::with_capacity(unix_defaults.len()),
+    let mut ordered = if cfg!(windows) {
+        Vec::with_capacity(windows_defaults.len())
+    } else {
+        Vec::with_capacity(unix_defaults.len())
     };
 
     // If user has a preferred extension, push it to the front
@@ -349,7 +349,7 @@ pub fn supported_extensions(preferred: Option<&String>) -> Vec<String> {
             .clone()
             .iter()
             .filter(|ext| Some(*ext) != preferred)
-            .map(|ext| ext.to_string()),
+            .map(std::string::ToString::to_string),
     );
 
     ordered

@@ -3,7 +3,7 @@ use toml::Value;
 
 use crate::schema::validate_toml_schema;
 
-pub fn find_key_in_tables(parsed_toml: Value, key: &str) -> Option<(String, Option<Value>)> {
+pub fn find_key_in_tables(parsed_toml: &Value, key: &str) -> Option<(String, Option<Value>)> {
     // Directly check if the key exists at the root level
     if let Some(table) = parsed_toml.as_table() {
         if table.contains_key(key) {
@@ -67,7 +67,7 @@ pub fn load_and_validate_toml(path: &Path) -> Option<Value> {
     if let Err(errors) = validate_toml_schema(&toml) {
         eprintln!("❌ atomic.toml failed validation:");
         for error in errors {
-            eprintln!("  - {}", error);
+            eprintln!("  - {error}");
         }
         return None;
     }
@@ -88,7 +88,7 @@ pub fn list_keys() {
             if let Some(defaults) = toml.get("default").and_then(|v| v.as_table()) {
                 println!("[default]");
                 for key in defaults.keys() {
-                    println!("  - {}", key); // Just print the command name (no description support here yet)
+                    println!("  - {key}"); // Just print the command name (no description support here yet)
                 }
                 found = true;
             }
@@ -97,7 +97,7 @@ pub fn list_keys() {
             // These can be either simple string/array commands or full tables with hooks and descriptions
             if let Some(custom) = toml.get("custom").and_then(|v| v.as_table()) {
                 println!("[custom]");
-                for (key, val) in custom.iter() {
+                for (key, val) in custom {
                     match val {
                         // If the command is a full table, try to extract and show the description
                         toml::Value::Table(inner) => {
@@ -105,12 +105,12 @@ pub fn list_keys() {
                                 .get("desc")
                                 .and_then(|d| d.as_str())
                                 .unwrap_or("<no description>");
-                            println!("  - {:<12} {}", key, desc);
+                            println!("  - {key:<12} {desc}");
                         }
 
                         // If the command is a raw string or array (e.g., build = "cargo build")
                         toml::Value::String(_) | toml::Value::Array(_) => {
-                            println!("  - {:<12} <no description>", key);
+                            println!("  - {key:<12} <no description>");
                         }
 
                         // Ignore unexpected formats
@@ -124,13 +124,13 @@ pub fn list_keys() {
             // Plugins are scripts, often run with --plugin <name>. We show their description if available.
             if let Some(plugins) = toml.get("plugin").and_then(|v| v.as_table()) {
                 println!("[plugin]");
-                for (key, val) in plugins.iter() {
+                for (key, val) in plugins {
                     let desc = val
                         .as_table()
                         .and_then(|t| t.get("desc"))
                         .and_then(|d| d.as_str())
                         .unwrap_or("<no description>");
-                    println!("  - {:<12} {}", key, desc);
+                    println!("  - {key:<12} {desc}");
                 }
                 found = true;
             }

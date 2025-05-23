@@ -51,12 +51,12 @@ fn cli() -> Command {
                 .conflicts_with_all(["list", "init", "cmd"]),
         )
         .arg(
-            Arg::new("squash")
-                .help("Squashes local commits and passes commit msg to remote")
-                .short('s')
-                .long("squash")
-                .value_name("COMMIT_MSG")
-                .conflicts_with_all(["init", "list", "cmd", "plugin", "template"]),
+Arg::new("single-commit")
+    .help("Rewrites all local commits since base as a single commit with the given message, and pushes")
+    .short('s') // Use capital S to avoid conflict with -s for squash if you want
+    .long("single-commit")
+    .value_name("COMMIT_MSG")
+    .conflicts_with_all(["cmd", "plugin", "init", "list"])
         )
         .arg(
             Arg::new("base")
@@ -64,7 +64,7 @@ fn cli() -> Command {
                 .long("base")
                 .value_name("BASE_BRANCH")
                 .default_value("main")
-                .requires("squash"),
+                .requires("single-commit"),
         )
         .arg(
             Arg::new("template")
@@ -84,23 +84,21 @@ pub fn start_cli() {
     let init_selected = matches.get_one::<bool>("init").copied().unwrap_or(false);
     let template_name = matches
         .get_one::<String>("template")
-        .map(String::as_str)
-        .unwrap_or("example");
+        .map_or("example", String::as_str);
 
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
 
     let cmd = matches.get_one::<String>("cmd");
     let plugin_name = matches.get_one::<String>("plugin");
 
-    let squash_msg = matches.get_one::<String>("squash");
+    let commit_msg = matches.get_one::<String>("single-commit");
     let base_branch = matches
         .get_one::<String>("base")
-        .map(String::as_str)
-        .unwrap_or("main");
+        .map_or("main", String::as_str);
 
-    if let Some(msg) = squash_msg {
-        match git::squash_local_commits(base_branch, msg) {
-            Ok(_) => println!("Successfully squashed local commits onto {base_branch}."),
+    if let Some(msg) = commit_msg {
+        match git::summarize_and_push_commits(base_branch, msg) {
+            Ok(()) => println!("Successfully squashed local commits onto {base_branch}."),
             Err(e) => eprintln!("Squash failed: {e}"),
         }
         return;
@@ -110,7 +108,7 @@ pub fn start_cli() {
 
     if init_selected {
         if let Err(err) = start_init(template_name) {
-            eprintln!("Failed to initialize atomic.toml: {}", err);
+            eprintln!("Failed to initialize atomic.toml: {err}");
         }
         return;
     }
@@ -127,7 +125,7 @@ pub fn start_cli() {
     // If they passed a plugin with --plugin <name>, run that
     else if let Some(plugin) = plugin_name {
         if let Err(err) = run_plugin(plugin, "atomic.toml") {
-            eprintln!("Plugin '{}' failed: {}", plugin, err);
+            eprintln!("Plugin '{plugin}' failed: {err}");
         } else {
             command_ran = true;
         }
@@ -136,11 +134,11 @@ pub fn start_cli() {
     // If anything ran successfully, trigger a Git auto-commit
     if command_ran {
         // Use the command name (if available) as context for the commit message
-        let cmd_str = cmd.map(|x| x.as_str());
+        let cmd_str = cmd.map(std::string::String::as_str);
 
         match git::commit_local_changes(cmd_str) {
-            Ok(_) => println!("Auto-commit completed."),
-            Err(e) => eprintln!("Auto-commit failed: {}", e),
+            Ok(()) => println!("Auto-commit completed."),
+            Err(e) => eprintln!("Auto-commit failed: {e}"),
         }
     }
 }
@@ -161,10 +159,7 @@ pub fn start_init(template_name: &str) -> io::Result<()> {
 
     if atomic_path.exists() {
         println!("⚠️  atomic.toml already exists.");
-        print!(
-            "Do you want to overwrite it with the '{}' template? [y/N]: ",
-            template_name
-        );
+        print!("Do you want to overwrite it with the '{template_name}' template? [y/N]: ");
         io::stdout().flush()?; // flush prompt to terminal
 
         let mut input = String::new();
@@ -194,6 +189,6 @@ pub fn start_init(template_name: &str) -> io::Result<()> {
     let mut file = File::create(atomic_path)?;
     file.write_all(contents.as_bytes())?;
 
-    println!("✅ Created atomic.toml using '{}' template.", template_name);
+    println!("✅ Created atomic.toml using '{template_name}' template.");
     Ok(())
 }

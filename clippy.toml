@@ -1,5 +1,5 @@
-warns = ["clippy::pedantic", "clippy::nursery"]
-allow = ["clippy::dead_code"]
+#warn = ["clippy::pedantic", "clippy::nursery"]
+#allow = ["clippy::dead_code"]
 
 # Some specific settings
 msrv = "1.70.0"

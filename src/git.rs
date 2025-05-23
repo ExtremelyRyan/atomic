@@ -49,7 +49,7 @@ pub fn send_command(cmd: &str) {
         }
         Err(err) => {
             // Handle execution errors
-            eprintln!("Failed to execute command: {}\nError: {}", cmd, err);
+            eprintln!("Failed to execute command: {cmd}\nError: {err}");
         }
     }
 }
@@ -63,13 +63,12 @@ pub fn _get_git_info() -> Result<(String, String, u64)> {
 
     // Get the current branch name
     let head = repo.head().expect("Failed to get HEAD reference");
-    let branch_name = match head.shorthand() {
-        Some(name) => name,
-        None => return Err(AtomicError::Static("Failed to get current branch name")),
+    let Some(branch_name) = head.shorthand() else {
+        return Err(AtomicError::Static("Failed to get current branch name"));
     };
 
     // Parse branch name into parts
-    let parts = _parse_branch_name(branch_name)?; // Updated to handle Vec<String>
+    let parts = parse_branch_name(branch_name)?; // Updated to handle Vec<String>
 
     // Extract parts safely
     let feature = parts.first().cloned().unwrap_or_default(); // First part as feature
@@ -91,7 +90,7 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     let mut index = repo.index()?;
 
     // Add all changes to the index (staging area)
-    index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
+    index.add_all(std::iter::once(&"*"), git2::IndexAddOption::DEFAULT, None)?;
 
     let repo_reference = repo.head()?.resolve()?;
     let branch = repo_reference.name().expect("No HEAD exists");
@@ -104,10 +103,10 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
 
     // Generate commit message
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let message = match commit_msg {
-        Some(msg) => format!("[{}] {}", timestamp, msg),
-        None => format!("[{}] atomic auto-commit", timestamp),
-    };
+    let message = commit_msg.map_or_else(
+        || format!("[{timestamp}] atomic auto-commit"),
+        |msg| format!("[{timestamp}] {msg}"),
+    );
 
     // Write the tree and create commit
     let tree_id = index.write_tree()?;
@@ -126,9 +125,33 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Squash all local commits onto the given base branch, commit with message, and push.
-pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
-    // Find the merge base
+/// Squashes all local commits since the merge-base with a base branch (default: "main")
+/// into a single commit with the user-supplied message, and pushes that single commit to remote.
+///
+/// - If there are multiple local commits, collapses them all.
+/// - If there is only one local commit, it rewrites (replaces) that commit with your custom message.
+/// - Always results in exactly one new commit on the remote branch.
+///
+/// # Arguments
+/// * `base_branch` - The branch to squash against (e.g., "main")
+/// * `message`     - The commit message for the squashed commit
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(AtomicError)` if any git operation fails or there are no commits to squash
+///
+/// # Notes
+/// - If you squash and push, **all previous local commits are overwritten** on the remote!
+/// - This is equivalent to a force-push rewrite (if history has already been pushed)
+/// - Use only on feature branches, not protected/shared branches!
+///
+/// # Example
+/// ```sh
+/// atomic --squash "My single summary commit"
+/// ```
+pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()> {
+    // Step 1: Find the merge-base commit between HEAD and the chosen base branch.
+    // This is the commit where your feature branch diverged from base.
     let merge_base = Command::new("git")
         .args(["merge-base", "HEAD", base_branch])
         .output()
@@ -145,25 +168,75 @@ pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
         .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in merge-base: {e}")))?;
     let base_commit = base_commit.trim();
 
-    // Soft reset to merge-base
-    let reset_status = Command::new("git")
-        .args(["reset", "--soft", base_commit])
-        .status()
-        .map_err(|e| AtomicError::Generic(format!("Failed to run git reset: {e}")))?;
-    if !reset_status.success() {
-        return Err(AtomicError::Static("Failed to perform git reset --soft"));
+    // Step 2: Count how many commits exist between merge-base and HEAD.
+    // This tells us if there is anything to squash.
+    let count_output = Command::new("git")
+        .args(["rev-list", "--count", &format!("{base_commit}..HEAD")])
+        .output()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git rev-list: {e}")))?;
+    let count_str = String::from_utf8(count_output.stdout)
+        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in rev-list: {e}")))?;
+    let commit_count: usize = count_str
+        .trim()
+        .parse()
+        .map_err(|e| AtomicError::Generic(format!("Failed to parse commit count: {e}")))?;
+
+    // Step 3: Bail out if there are no commits to squash.
+    if commit_count == 0 {
+        return Err(AtomicError::Static("No commits to squash."));
     }
 
-    // Commit with the provided message
-    let commit_status = Command::new("git")
-        .args(["commit", "-am", message])
-        .status()
-        .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
-    if !commit_status.success() {
-        return Err(AtomicError::Static("Failed to create the squashed commit"));
+    // Step 4: Squash strategy depends on commit count:
+    // - If more than one, do a normal squash (reset to base and re-commit)
+    // - If only one, rewrite that single commit (reset one back and recommit)
+    if commit_count > 1 {
+        // Multiple commits: reset all the way back to base (preserving changes in index),
+        // and create a single new commit with user's message.
+        let reset_status = Command::new("git")
+            .args(["reset", "--soft", base_commit])
+            .status()
+            .map_err(|e| AtomicError::Generic(format!("Failed to run git reset: {e}")))?;
+        if !reset_status.success() {
+            return Err(AtomicError::Static("Failed to perform git reset --soft"));
+        }
+
+        // Now commit everything with your custom message.
+        let commit_status = Command::new("git")
+            .args(["commit", "-am", message])
+            .status()
+            .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
+        if !commit_status.success() {
+            return Err(AtomicError::Static("Failed to create the squashed commit"));
+        }
+    } else {
+        // Only one commit: To "rename" it, we must:
+        // - Undo the last commit (reset --soft HEAD~1, which stages all changes)
+        // - Recommit those changes with your new message (makes a new commit with a different hash/message)
+        let reset_status = Command::new("git")
+            .args(["reset", "--soft", "HEAD~1"])
+            .status()
+            .map_err(|e| {
+                AtomicError::Generic(format!("Failed to run git reset for single commit: {e}"))
+            })?;
+        if !reset_status.success() {
+            return Err(AtomicError::Static(
+                "Failed to perform git reset --soft HEAD~1",
+            ));
+        }
+
+        let commit_status = Command::new("git")
+            .args(["commit", "-am", message])
+            .status()
+            .map_err(|e| {
+                AtomicError::Generic(format!("Failed to run git commit for single commit: {e}"))
+            })?;
+        if !commit_status.success() {
+            return Err(AtomicError::Static("Failed to rewrite the single commit"));
+        }
     }
 
-    // Push the branch
+    // Step 5: Push the resulting commit to the remote.
+    // By default, this will push to the currently-tracked branch.
     let push_status = Command::new("git")
         .args(["push"])
         .status()
@@ -175,7 +248,7 @@ pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn _parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
+pub fn parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     // Check if the branch name is empty or contains only delimiters
     if branch_name.trim().is_empty() || branch_name.chars().all(|c| c == '-')
     // Check for only delimiters
@@ -189,7 +262,7 @@ pub fn _parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     let parts: Vec<String> = branch_name
         .split('-') // Split by '-'
         .filter(|s| !s.is_empty()) // Filter out empty parts
-        .map(|s| s.to_string()) // Convert to String
+        .map(std::string::ToString::to_string) // Convert to String
         .collect();
 
     Ok(parts)
@@ -200,10 +273,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_branch_name() {
+    fn testparse_branch_name() {
         // Test parsing multiple parts
         assert_eq!(
-            _parse_branch_name("feature-144-adding_dark_mode"),
+            parse_branch_name("feature-144-adding_dark_mode"),
             Ok(vec![
                 "feature".to_string(),
                 "144".to_string(),
@@ -215,19 +288,19 @@ mod tests {
 
         // Test parsing two parts
         assert_eq!(
-            _parse_branch_name("feature-144"),
+            parse_branch_name("feature-144"),
             Ok(vec!["feature".to_string(), "144".to_string()])
         );
 
         // Test parsing one part
         assert_eq!(
-            _parse_branch_name("feature"),
+            parse_branch_name("feature"),
             Ok(vec!["feature".to_string()])
         );
 
         // Test empty branch name
         assert_eq!(
-            _parse_branch_name(""),
+            parse_branch_name(""),
             Err(AtomicError::Static(
                 "Branch name cannot be empty or contain only delimiters."
             ))
@@ -235,7 +308,7 @@ mod tests {
 
         // Test invalid input (all delimiters)
         assert_eq!(
-            _parse_branch_name("---"),
+            parse_branch_name("---"),
             Err(AtomicError::Static(
                 "Branch name cannot be empty or contain only delimiters."
             ))
@@ -243,7 +316,7 @@ mod tests {
 
         // Test parsing many parts
         assert_eq!(
-            _parse_branch_name("feature-144-adding-dark-mode-extras"),
+            parse_branch_name("feature-144-adding-dark-mode-extras"),
             Ok(vec![
                 "feature".to_string(),
                 "144".to_string(),

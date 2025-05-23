@@ -1,3 +1,6 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(dead_code)]
+
 //! Main execution point
 mod cli;
 mod command;
