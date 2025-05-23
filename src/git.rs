@@ -126,10 +126,10 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Squash all local commits onto the given base branch, using the provided commit message.
-/// Only safe if you haven't pushed those commits!
+
+/// Squash all local commits onto the given base branch, commit with message, and push.
 pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
-    // 1. Find the merge base with the target branch
+    // Find the merge base
     let merge_base = Command::new("git")
         .args(["merge-base", "HEAD", base_branch])
         .output()
@@ -146,7 +146,7 @@ pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
         .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in merge-base: {e}")))?;
     let base_commit = base_commit.trim();
 
-    // 2. Soft reset to merge base (preserve working tree, stage all changes)
+    // Soft reset to merge-base
     let reset_status = Command::new("git")
         .args(["reset", "--soft", base_commit])
         .status()
@@ -155,13 +155,22 @@ pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
         return Err(AtomicError::Static("Failed to perform git reset --soft"));
     }
 
-    // 3. Commit everything with the provided message
+    // Commit with the provided message
     let commit_status = Command::new("git")
         .args(["commit", "-am", message])
         .status()
         .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
     if !commit_status.success() {
         return Err(AtomicError::Static("Failed to create the squashed commit"));
+    }
+
+    // Push the branch
+    let push_status = Command::new("git")
+        .args(["push"])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git push: {e}")))?;
+    if !push_status.success() {
+        return Err(AtomicError::Static("Failed to push branch after squashing"));
     }
 
     Ok(())
