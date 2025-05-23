@@ -55,7 +55,8 @@ fn cli() -> Command {
                 .help("Squashes local commits and passes commit msg to remote")
                 .short('s')
                 .long("squash")
-                .value_name("COMMIT_MSG"),
+                .value_name("COMMIT_MSG")
+                .conflicts_with_all(["init", "list", "cmd", "plugin", "template"]),
         )
         .arg(
             Arg::new("base")
