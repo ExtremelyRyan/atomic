@@ -131,25 +131,24 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
 /// - Always results in one commit on remote with your message.
 pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()> {
     let base_commit = find_merge_base(base_branch)?;
-    let mut commit_count = count_commits_since(&base_commit)?;
 
     // Always stage all changes first.
     stage_all_changes()?;
 
-    // After staging, commit staged changes if there are no commits yet.
+    // Commit staged changes if there are no commits yet.
+    let mut commit_count = count_commits_since(&base_commit)?;
     if commit_count == 0 {
         commit_staged_changes(message)?;
-        // Check again after commit attempt:
+        // Re-count after committing
         commit_count = count_commits_since(&base_commit)?;
-        if commit_count == 0 {
-            return Err(AtomicError::Static(
-                "No commits, staged, or unstaged changes to squash/amend.",
-            ));
-        }
     }
 
-    // Now, squash or amend as needed.
-    if commit_count > 1 {
+    // Now, squash or amend as needed, or fail if *still* nothing to do.
+    if commit_count == 0 {
+        return Err(AtomicError::Static(
+            "No commits, staged, or unstaged changes to squash/amend.",
+        ));
+    } else if commit_count > 1 {
         squash_commits(&base_commit, message)?;
     } else {
         amend_last_commit(message)?;
