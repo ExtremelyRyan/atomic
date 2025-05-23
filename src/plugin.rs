@@ -326,7 +326,9 @@ pub fn map_extension_to_command(full_path: String, ext: &str) -> io::Result<Scri
 /// This list should align with what `map_extension_to_command()` supports.
 pub fn supported_extensions(preferred: Option<&String>) -> Vec<String> {
     // Windows platform extensions
-    let windows_defaults = ["bat", "cmd", "ps1", "exe", "py", "js", "ts", "rb", "lua", "go"];
+    let windows_defaults = [
+        "bat", "cmd", "ps1", "exe", "py", "js", "ts", "rb", "lua", "go",
+    ];
 
     // Unix/Linux platform extensions
     let unix_defaults = ["sh", "py", "js", "ts", "rb", "lua", "go"];

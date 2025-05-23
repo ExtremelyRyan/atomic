@@ -126,6 +126,48 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Squash all local commits onto the given base branch, using the provided commit message.
+/// Only safe if you haven't pushed those commits!
+pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
+    // 1. Find the merge base with the target branch
+    let merge_base = Command::new("git")
+        .args(["merge-base", "HEAD", base_branch])
+        .output()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git merge-base: {e}")))?;
+
+    if !merge_base.status.success() {
+        return Err(AtomicError::Generic(format!(
+            "Could not determine merge-base with branch '{}': {}",
+            base_branch,
+            String::from_utf8_lossy(&merge_base.stderr)
+        )));
+    }
+    let base_commit = String::from_utf8(merge_base.stdout)
+        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in merge-base: {e}")))?;
+    let base_commit = base_commit.trim();
+
+    // 2. Soft reset to merge base (preserve working tree, stage all changes)
+    let reset_status = Command::new("git")
+        .args(["reset", "--soft", base_commit])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git reset: {e}")))?;
+    if !reset_status.success() {
+        return Err(AtomicError::Static("Failed to perform git reset --soft"));
+    }
+
+    // 3. Commit everything with the provided message
+    let commit_status = Command::new("git")
+        .args(["commit", "-am", message])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
+    if !commit_status.success() {
+        return Err(AtomicError::Static("Failed to create the squashed commit"));
+    }
+
+    Ok(())
+}
+
+
 pub fn _parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     // Check if the branch name is empty or contains only delimiters
     if branch_name.trim().is_empty() || branch_name.chars().all(|c| c == '-')
@@ -158,7 +200,8 @@ mod tests {
             Ok(vec![
                 "feature".to_string(),
                 "144".to_string(),
-                "adding_dark_mode".to_string()
+                "adding_dark_mode
+                ".to_string()
             ])
         );
 
@@ -204,3 +247,4 @@ mod tests {
         );
     }
 }
+

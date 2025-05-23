@@ -59,6 +59,7 @@ fn validate_custom_entry(key: &str, map: &toml::value::Table, errors: &mut Vec<S
         let valid = match (k.as_str(), v) {
             ("command", Value::String(_)) => true,
             ("command", Value::Array(arr)) => arr.iter().all(|item| item.is_str()),
+            ("commit", Value::Boolean(_)) => true,
             ("before", Value::String(_)) => true,
             ("after", Value::String(_)) => true,
             ("desc", Value::String(_)) => true,

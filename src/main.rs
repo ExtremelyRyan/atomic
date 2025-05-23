@@ -1,5 +1,4 @@
 //! Main execution point
-#[allow(dead_code)]
 mod cli;
 mod command;
 mod git;

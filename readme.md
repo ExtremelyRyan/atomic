@@ -22,30 +22,26 @@
 <H3 align="center">this project is still in rapid development, and is prone to breaking changes on main.</H3>
 </div>
 
-## What's Atomic?
+# Atomic
 
-Atomic is a command-line tool designed to streamline the process of making "atomic" commits. It addresses the challenge of remembering to save frequent snapshots of your code without disrupting your workflow. By defining custom commands in an atomic.toml file located in your project's root directory, Atomic allows you to execute your desired actions while automatically creating local commit snapshots in Git. This ensures that your changes are captured efficiently and without interrupting your focus.
+**Atomic** is a fast, minimal CLI tool that automates local Git commits around the scripts you already run — tests, formatters, docs, builds, anything. Define commands once in a TOML file. Let Atomic run them and snapshot your work with zero friction.
+  
 
-### **Built With**
+Use it as:
+- A commit automation tool
+- A task runner that remembers to save your work
+- A Git-integrated wrapper for dev scripts
+- A shell-based CI runner for solo workflows
 
-**Rust**, because I like it. 
+## 🔧 Why Use Atomic?
 
-## Getting Started
+Atomic solves a common annoyance: you run `cargo test`, `npm run format`, or `./scripts/setup.sh` — but forget to commit. Or you commit inconsistently.
 
-### Prerequisites
+Now, your routine commands can **automatically commit your changes**, so you never lose progress.
 
-- Rust MSRV: 1.74
+## 🚀 Installation
 
-- Windows 10/11
-
-- not tested on linux (yet)
-
-- any scripting language(s) you intend on using for pre/post hooks
-
-### Installation
-
-
-1. **Install from Source**
+### From Source
 
 ```bash
 git clone https://github.com/ExtremelyRyan/atomic.git
@@ -53,160 +49,159 @@ cd atomic
 cargo install --path .
 ```
 
-2. **From Crates.io**
+### From Crates.io
 
 ```bash
 cargo install cargo-atomic
 ```
 
+> Note: minimum supported Rust version is 1.74. Windows 10/11 only (Linux coming soon).
 
-## Usage 
+## ⚙️ How It Works
 
-- For setting up a new project simply run `atomic init` in your project root directory, which will create a 
-`atomic.toml` file with some defaults (for rust commands), as well as a few examples.
+1. Define your dev commands in `atomic.toml`.
+2. Run them with `atomic <command>`.
+3. Atomic runs the command (plus any pre/post hooks).
+4. If it changes your Git state, it locally auto-commits.
 
+## 📄 Sample `atomic.toml`
 
-
-### Custom Commands
-custom commands are for everything else you need to do that you **also want a local git commit to happen.**
-
-examples from the template file
-```toml 
+```toml
 [custom.check]
 command = "cargo check"
 
 [custom.clippy]
-before  = "echo Running Clippy"
+before = "echo Running Clippy"
 command = "cargo clippy"
-after   = "echo Clippy finished"
+after = "echo Clippy finished"
 
-[custom.tw]
-command = "cargo test --all-features --workspace"
-
-[custom.clippy_max]
-command = "cargo clippy --all-targets --all-features --workspace -- -D warnings"
-
-[custom.doc]
-command = "cargo doc --no-deps --document-private-items --all-features --workspace --open"
-
-# Chain multiple commands, declared or raw
 [custom.chain]
-command = ["check", "tw", "clippy_max"]
-```
-**Note**: no two command keywords can be the same
+command = ["check", "clippy", "cargo fmt"]
 
-Here's the short on setting up a new custom command
-
-```toml
-# Your new atomic command
-# replace "test" with what you want to call this action
-# i.e. Atomic test
-[custom.test]
-before = "path/to/script" # prehook action
-command = "cargo test" # main command
-after = "path/to/script" or command line action # i.e. some clean up commands 
-
-```
-
-
-### Run a plugin:
-
-```bash
-atomic --plugin docs
-```
-
-If the plugin has `silent = true`, output is logged to `atomic-logs/docs.log`.
-
-here's an example"
-```toml
 [plugin.generate-docs]
-script = "./scripts/test.py" 
-args = ["hello", "from", "Atomic!"] 
-silent = true   # optional, defaults to false
+script = "./scripts/gen_docs.py"
+args = ["hello", "from", "Atomic!"]
+silent = true
 ```
 
+## ✅ Supported Use Cases
 
-## 💾 Auto-committing
-
-After running a command or plugin, Atomic will automatically commit any changes in the repository with a timestamp-based commit message. The commit message will look like this:
-
-```
-[2024-03-27 13:52:12] command: cargo fmt
-```
-
-You don’t need to do anything else — it just works. this helps
-you stay focused on what you're building and not worry about saving your progress. 
-
-Supports:
-- `.sh`, `.bat`, `.cmd`, `.ps1`, `.py`, `.exe`
-- Auto-switches based on OS
-- Log output to `atomic-logs/<plugin>.log` when `silent = true` on any custom command. 
-
----
+- Auto-committing after build/test/lint
+- Pre/post hooks around scripts or shell commands
+- Cross-platform script runner (Windows PowerShell, batch, Python, etc.)
+- Command chaining (`["cargo check", "cargo test"]`)
+- Git-integrated plugin system
+- Project scaffolding with starter templates
 
 ## 🔁 Pre/Post Hooks
 
-Any custom command can have a `before` or `after` script:
+Add `before` and `after` to wrap any command:
 
 ```toml
 [custom.test]
-before  = "echo Starting tests"
+before = "echo Testing..."
 command = "cargo test"
-after   = "echo All done"
+after = "echo Done."
 ```
 
----
+## 🔌 Plugins
 
-## 🧠 Templates
+Run script-based plugins (any language):
 
-Quickly generate starter configs:
+```toml
+[plugin.cleanup]
+script = "./scripts/clean_temp.py"
+args = ["--force"]
+silent = true
+```
+
+Call with:
+
+```bash
+atomic --plugin cleanup
+```
+
+If `silent = true`, logs go to `atomic-logs/cleanup.log`.
+
+## 🧪 Commands
+
+### Atomic Commands
+
+| Command                     | Description                                                |
+|-----------------------------|------------------------------------------------------------|
+| `atomic init`               | Create an example `atomic.toml` with built-in Rust tasks   |
+| `atomic init --template rust` | Use the built-in Rust starter template                  |
+| `atomic <command>`          | Run a `[custom.<command>]` entry from your config         |
+| `atomic --plugin <name>`    | Run a `[plugin.<name>]` script                            |
+| `atomic --list`             | List all available commands from your TOML                |
+| `atomic config show`        | Show resolved TOML config in the terminal                 |
+
+> You can also use kebab-case or snake_case for commands — both are supported.
+
+## 🗂 Templates
 
 ```bash
 atomic init --template rust
 atomic init --template example
 ```
 
-Available templates:
+Built-in templates:
 - `rust`
 - `example`
 
----
+They include:
+- Common Rust commands (check, clippy, test)
+- Plugin examples
+- Commented TOML
 
-## 💬 Flags
+## 💾 Git Auto-Commits
 
-| Flag            | Description                             |
-|-----------------|-----------------------------------------|
-| `--init`        | Create a new `atomic.toml` file         |
-| `--template`    | Select a template to initialize with    |
-| `--list`        | List all available commands             |
-| `--plugin`      | Run a plugin defined in `atomic.toml`   |
+When you run any `custom` or `plugin` command that alters the Git tree, Atomic will auto-commit it **locally** with a timestamp:
 
----
+```
+[2024-03-27 13:52:12] command: cargo fmt
+```
 
+You don't have to think about `git add` or `git commit`. It just saves your progress.
 
-## Roadmap
+## 🔒 Script Support
 
-See the [open issues](https://github.com/ExtremelyRyan/atomic/issues) for a list of proposed features (and known issues).
+Works with:
+- `.sh`, `.bat`, `.cmd`, `.ps1`, `.py`, `.exe`
+- Shell chaining: `&&`, `||`, `;`
+- Auto OS detection
 
-- [Top Feature Requests](https://github.com/ExtremelyRyan/atomic/issues?q=label%3Aenhancement+is%3Aopen+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Top Bugs](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aissue+is%3Aopen+label%3Abug+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Newest Bugs](https://github.com/ExtremelyRyan/atomic/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
+## 🛠 Built With
 
-## Support
+- Rust 1.74
+- [clap](https://docs.rs/clap) for CLI parsing
+- [git2](https://docs.rs/git2) for native Git integration
+- [chrono](https://docs.rs/chrono) for commit timestamps
 
-Reach out to the maintainer at one of the following places:
+## 🗺 Roadmap
 
-- [GitHub issues](https://github.com/ExtremelyRyan/atomic/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
-- Contact options listed on [this GitHub profile](https://github.com/GITHUB_USERNAME)
+- [ ] Linux support
+- [ ] Plugin chaining (`plugin.build && plugin.deploy`)
+- [ ] Template variables with default values (`{{ var | default("fallback") }}`)
+- [ ] Git hook integration
+- [ ] Command caching or skip-if-clean behavior
+- [ ] Web UI (log viewer or dashboard)
 
-## Project assistance
+Contribute or suggest features on [GitHub](https://github.com/ExtremelyRyan/atomic/issues).
 
-If you want to say **thank you** or/and support active development of Atomic:
+## 🙋 Support
 
-- Add a [GitHub Star](https://github.com/ExtremelyRyan/atomic) to the project.
-- Tweet about the Atomic.
-- Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
+- Ask a [question](https://github.com/ExtremelyRyan/atomic/issues/new?labels=question)
+- Request a [feature](https://github.com/ExtremelyRyan/atomic/issues/new?labels=enhancement)
+- Report a [bug](https://github.com/ExtremelyRyan/atomic/issues/new?labels=bug)
 
-## Authors & contributors
+## ✍️ Author
 
-Created by [ExtremelyRyan](https://github.com/ExtremelyRyan).
+Built by [ExtremelyRyan](https://github.com/ExtremelyRyan). MIT licensed. Star the repo if you use it!
+
+## 🔗 Project Metadata
+
+- Crate name: `cargo-atomic`
+- Binary name: `atomic`
+- License: MIT
+- Categories: CLI Tools, Git Automation, Rust Dev Utilities

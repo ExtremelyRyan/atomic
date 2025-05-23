@@ -25,7 +25,7 @@ fn cli() -> Command {
                 .long("list")
                 .help("List all commands found in atomic.toml")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["init", "CMD"]),
+                .conflicts_with_all(["init", "cmd"]),
         )
         .arg(
             Arg::new("init")
@@ -33,30 +33,45 @@ fn cli() -> Command {
                 .long("init")
                 .help("Initialize atomic.toml from a template")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["list", "CMD"]),
+                .conflicts_with_all(["list", "cmd"]),
         )
         .arg(
-            Arg::new("CMD")
+            Arg::new("cmd")
                 .help("Run a command listed in atomic.toml")
                 .index(1)
                 .required(false)
                 .conflicts_with_all(["list", "init"]),
         )
         .arg(
-            Arg::new("PLUGIN")
+            Arg::new("plugin")
                 .help("Run a plugin defined in [plugin]")
                 .short('p')
                 .long("plugin")
                 .value_name("PLUGIN_NAME")
-                .conflicts_with_all(["list", "init", "CMD"]),
+                .conflicts_with_all(["list", "init", "cmd"]),
         )
-        .arg(
-            Arg::new("template")
-                .long("template")
-                .value_name("TEMPLATE")
-                .help("Choose a template")
-                .required(false),
-        )
+.arg(
+    Arg::new("squash")
+        .help("Squashes local commits and passes commit msg to remote")
+        .short('s')
+        .long("squash")
+        .value_name("COMMIT_MSG")
+)
+.arg(
+    Arg::new("base")
+        .help("Base branch to squash to")
+        .long("base")
+        .value_name("BASE_BRANCH")
+        .default_value("main")
+        .requires("squash")
+)
+.arg(
+    Arg::new("template")
+        .long("template")
+        .help("Choose a template")
+        .value_name("TEMPLATE")
+        .required(false)
+)
         .arg_required_else_help(true)
 }
 
@@ -73,9 +88,19 @@ pub fn start_cli() {
 
     let list_selected = matches.get_one::<bool>("list").copied().unwrap_or(false);
 
-    let cmd = matches.get_one::<String>("CMD");
-    let plugin_name = matches.get_one::<String>("PLUGIN");
+    let cmd = matches.get_one::<String>("cmd");
+    let plugin_name = matches.get_one::<String>("plugin");
 
+    let squash_msg = matches.get_one::<String>("squash");
+    let base_branch = matches.get_one::<String>("base").map(String::as_str).unwrap_or("main");
+
+    if let Some(msg) = squash_msg {
+        match git::squash_local_commits(base_branch, msg) {
+            Ok(_) => println!("Successfully squashed local commits onto {base_branch}."),
+            Err(e) => eprintln!("Squash failed: {e}"),
+        }
+        return;
+    }
     // We'll use this to track whether a command or plugin actually ran
     let mut command_ran = false;
 
