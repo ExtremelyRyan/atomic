@@ -133,19 +133,22 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
     let base_commit = find_merge_base(base_branch)?;
     let mut commit_count = count_commits_since(&base_commit)?;
 
-    // Auto-commit staged changes if nothing has been committed yet
+    // Always stage all changes first.
+    stage_all_changes()?;
+
+    // After staging, commit staged changes if there are no commits yet.
     if commit_count == 0 {
-        if has_staged_changes()? {
-            commit_staged_changes(message)?;
-            commit_count = 1;
-        } else {
+        commit_staged_changes(message)?;
+        // Check again after commit attempt:
+        commit_count = count_commits_since(&base_commit)?;
+        if commit_count == 0 {
             return Err(AtomicError::Static(
-                "No commits or staged changes to squash/amend.",
+                "No commits, staged, or unstaged changes to squash/amend.",
             ));
         }
     }
 
-    // Now, squash or amend as needed
+    // Now, squash or amend as needed.
     if commit_count > 1 {
         squash_commits(&base_commit, message)?;
     } else {
@@ -154,6 +157,21 @@ pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()
 
     force_push()?;
     Ok(())
+}
+
+/// Stages all changes (staged and unstaged) in the working directory.
+fn stage_all_changes() -> Result<()> {
+    let status = Command::new("git")
+        .args(["add", "-A"])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to git add -A: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AtomicError::Static(
+            "Failed to stage all changes with git add -A.",
+        ))
+    }
 }
 
 /// Finds the merge-base between HEAD and the given base branch.
@@ -201,12 +219,14 @@ fn has_staged_changes() -> Result<bool> {
 }
 
 /// Commits any staged changes using the provided message.
+/// Returns Ok(()) even if there's nothing to commit (idempotent).
 fn commit_staged_changes(message: &str) -> Result<()> {
     let status = Command::new("git")
         .args(["commit", "-am", message])
         .status()
         .map_err(|e| AtomicError::Generic(format!("Failed to commit staged changes: {e}")))?;
-    if status.success() {
+    // Accept both successful commit and "nothing to commit"
+    if status.success() || status.code() == Some(1) {
         Ok(())
     } else {
         Err(AtomicError::Static(
