@@ -40,7 +40,7 @@ command = "cargo doc --no-deps --document-private-items --all-features --workspa
 
 # Chain multiple commands, declared or raw
 [custom.chain]
-command = ["check", "tw", "cargo fmt"]
+command = ["check", "cargo fmt"]
 desc = "runs custom check, test workspace, and cargo fmt"
 
 

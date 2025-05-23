@@ -126,7 +126,6 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-
 /// Squash all local commits onto the given base branch, commit with message, and push.
 pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
     // Find the merge base
@@ -176,7 +175,6 @@ pub fn squash_local_commits(base_branch: &str, message: &str) -> Result<()> {
     Ok(())
 }
 
-
 pub fn _parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
     // Check if the branch name is empty or contains only delimiters
     if branch_name.trim().is_empty() || branch_name.chars().all(|c| c == '-')
@@ -210,7 +208,8 @@ mod tests {
                 "feature".to_string(),
                 "144".to_string(),
                 "adding_dark_mode
-                ".to_string()
+                "
+                .to_string()
             ])
         );
 
@@ -256,4 +255,3 @@ mod tests {
         );
     }
 }
-

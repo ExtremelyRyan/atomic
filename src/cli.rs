@@ -50,28 +50,28 @@ fn cli() -> Command {
                 .value_name("PLUGIN_NAME")
                 .conflicts_with_all(["list", "init", "cmd"]),
         )
-.arg(
-    Arg::new("squash")
-        .help("Squashes local commits and passes commit msg to remote")
-        .short('s')
-        .long("squash")
-        .value_name("COMMIT_MSG")
-)
-.arg(
-    Arg::new("base")
-        .help("Base branch to squash to")
-        .long("base")
-        .value_name("BASE_BRANCH")
-        .default_value("main")
-        .requires("squash")
-)
-.arg(
-    Arg::new("template")
-        .long("template")
-        .help("Choose a template")
-        .value_name("TEMPLATE")
-        .required(false)
-)
+        .arg(
+            Arg::new("squash")
+                .help("Squashes local commits and passes commit msg to remote")
+                .short('s')
+                .long("squash")
+                .value_name("COMMIT_MSG"),
+        )
+        .arg(
+            Arg::new("base")
+                .help("Base branch to squash to")
+                .long("base")
+                .value_name("BASE_BRANCH")
+                .default_value("main")
+                .requires("squash"),
+        )
+        .arg(
+            Arg::new("template")
+                .long("template")
+                .help("Choose a template")
+                .value_name("TEMPLATE")
+                .required(false),
+        )
         .arg_required_else_help(true)
 }
 
@@ -92,7 +92,10 @@ pub fn start_cli() {
     let plugin_name = matches.get_one::<String>("plugin");
 
     let squash_msg = matches.get_one::<String>("squash");
-    let base_branch = matches.get_one::<String>("base").map(String::as_str).unwrap_or("main");
+    let base_branch = matches
+        .get_one::<String>("base")
+        .map(String::as_str)
+        .unwrap_or("main");
 
     if let Some(msg) = squash_msg {
         match git::squash_local_commits(base_branch, msg) {
