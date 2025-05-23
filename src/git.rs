@@ -125,113 +125,145 @@ pub fn commit_local_changes(commit_msg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Squash or summarize all local changes into a single commit with a custom message and force-push.
-/// - If there are no commits, but there are staged changes, commits them first.
-/// - If there is one commit, amends the message.
-/// - If there are multiple commits, squashes to one.
-/// Always results in a single commit on remote with your message.
+/// Entry point: Summarize all local changes into a single commit with a custom message, and force-push.
+/// - Auto-commits any staged changes if there are no local commits.
+/// - Squashes multiple commits or amends a single commit as needed.
+/// - Always results in one commit on remote with your message.
 pub fn summarize_and_push_commits(base_branch: &str, message: &str) -> Result<()> {
-    // Step 1: Find the merge-base commit between HEAD and the chosen base branch.
-    let merge_base = Command::new("git")
-        .args(["merge-base", "HEAD", base_branch])
-        .output()
-        .map_err(|e| AtomicError::Generic(format!("Failed to run git merge-base: {e}")))?;
+    let base_commit = find_merge_base(base_branch)?;
+    let mut commit_count = count_commits_since(&base_commit)?;
 
-    if !merge_base.status.success() {
-        return Err(AtomicError::Generic(format!(
-            "Could not determine merge-base with branch '{}': {}",
-            base_branch,
-            String::from_utf8_lossy(&merge_base.stderr)
-        )));
-    }
-    let base_commit = String::from_utf8(merge_base.stdout)
-        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in merge-base: {e}")))?;
-    let base_commit = base_commit.trim();
-
-    // Step 2: Count how many commits exist between merge-base and HEAD.
-    let count_output = Command::new("git")
-        .args(["rev-list", "--count", &format!("{base_commit}..HEAD")])
-        .output()
-        .map_err(|e| AtomicError::Generic(format!("Failed to run git rev-list: {e}")))?;
-    let count_str = String::from_utf8(count_output.stdout)
-        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in rev-list: {e}")))?;
-    let mut commit_count: usize = count_str
-        .trim()
-        .parse()
-        .map_err(|e| AtomicError::Generic(format!("Failed to parse commit count: {e}")))?;
-
-    // Step 3: If there are no commits since base, but staged changes exist, make a commit now.
+    // Auto-commit staged changes if nothing has been committed yet
     if commit_count == 0 {
-        // Check for staged changes (exit code 1 means differences, 0 means clean)
-        let staged_status = Command::new("git")
-            .args(["diff", "--cached", "--quiet"])
-            .status()
-            .map_err(|e| AtomicError::Generic(format!("Failed to check staged changes: {e}")))?;
-        if !staged_status.success() {
-            // There are staged changes—commit them!
-            let commit_status = Command::new("git")
-                .args(["commit", "-am", message])
-                .status()
-                .map_err(|e| {
-                    AtomicError::Generic(format!("Failed to commit staged changes: {e}"))
-                })?;
-            if !commit_status.success() {
-                return Err(AtomicError::Static(
-                    "Failed to create a commit from staged changes.",
-                ));
-            }
-            // We've now created one commit since base, so set commit_count to 1
+        if has_staged_changes()? {
+            commit_staged_changes(message)?;
             commit_count = 1;
         } else {
-            // No commits and nothing staged: bail out
             return Err(AtomicError::Static(
                 "No commits or staged changes to squash/amend.",
             ));
         }
     }
 
-    // Step 4: Squash or amend depending on commit count.
+    // Now, squash or amend as needed
     if commit_count > 1 {
-        // Multiple commits: reset to base (preserving changes in index),
-        // and create a single new commit with user's message.
-        let reset_status = Command::new("git")
-            .args(["reset", "--soft", base_commit])
-            .status()
-            .map_err(|e| AtomicError::Generic(format!("Failed to run git reset: {e}")))?;
-        if !reset_status.success() {
-            return Err(AtomicError::Static("Failed to perform git reset --soft"));
-        }
-
-        let commit_status = Command::new("git")
-            .args(["commit", "-am", message])
-            .status()
-            .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
-        if !commit_status.success() {
-            return Err(AtomicError::Static("Failed to create the squashed commit"));
-        }
+        squash_commits(&base_commit, message)?;
     } else {
-        // Only one commit since base: amend its message, even if nothing changed!
-        let amend_status = Command::new("git")
-            .args(["commit", "--amend", "-m", message])
-            .status()
-            .map_err(|e| AtomicError::Generic(format!("Failed to amend the single commit: {e}")))?;
-        if !amend_status.success() {
-            return Err(AtomicError::Static("Failed to amend the single commit"));
-        }
+        amend_last_commit(message)?;
     }
 
-    // Step 5: Force-push the resulting commit to the remote branch.
-    let push_status = Command::new("git")
+    force_push()?;
+    Ok(())
+}
+
+/// Finds the merge-base between HEAD and the given base branch.
+fn find_merge_base(base_branch: &str) -> Result<String> {
+    let output = Command::new("git")
+        .args(["merge-base", "HEAD", base_branch])
+        .output()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git merge-base: {e}")))?;
+
+    if !output.status.success() {
+        return Err(AtomicError::Generic(format!(
+            "Could not determine merge-base with branch '{}': {}",
+            base_branch,
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let commit = String::from_utf8(output.stdout)
+        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in merge-base: {e}")))?;
+    Ok(commit.trim().to_string())
+}
+
+/// Counts the number of commits between `base_commit` and HEAD.
+fn count_commits_since(base_commit: &str) -> Result<usize> {
+    let output = Command::new("git")
+        .args(["rev-list", "--count", &format!("{base_commit}..HEAD")])
+        .output()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git rev-list: {e}")))?;
+
+    let count_str = String::from_utf8(output.stdout)
+        .map_err(|e| AtomicError::Generic(format!("Invalid UTF-8 in rev-list: {e}")))?;
+    count_str
+        .trim()
+        .parse()
+        .map_err(|e| AtomicError::Generic(format!("Failed to parse commit count: {e}")))
+}
+
+/// Returns true if there are staged changes to be committed.
+fn has_staged_changes() -> Result<bool> {
+    let status = Command::new("git")
+        .args(["diff", "--cached", "--quiet"])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to check staged changes: {e}")))?;
+    Ok(!status.success())
+}
+
+/// Commits any staged changes using the provided message.
+fn commit_staged_changes(message: &str) -> Result<()> {
+    let status = Command::new("git")
+        .args(["commit", "-am", message])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to commit staged changes: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AtomicError::Static(
+            "Failed to create a commit from staged changes.",
+        ))
+    }
+}
+
+/// Squashes all commits since the merge-base into a single commit.
+fn squash_commits(base_commit: &str, message: &str) -> Result<()> {
+    // Soft-reset to the base commit
+    let reset_status = Command::new("git")
+        .args(["reset", "--soft", base_commit])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git reset: {e}")))?;
+    if !reset_status.success() {
+        return Err(AtomicError::Static("Failed to perform git reset --soft"));
+    }
+
+    // Commit everything with the provided message
+    let commit_status = Command::new("git")
+        .args(["commit", "-am", message])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to run git commit: {e}")))?;
+    if commit_status.success() {
+        Ok(())
+    } else {
+        Err(AtomicError::Static("Failed to create the squashed commit"))
+    }
+}
+
+/// Amends the last commit with the provided message.
+fn amend_last_commit(message: &str) -> Result<()> {
+    let status = Command::new("git")
+        .args(["commit", "--amend", "-m", message])
+        .status()
+        .map_err(|e| AtomicError::Generic(format!("Failed to amend the single commit: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AtomicError::Static("Failed to amend the single commit"))
+    }
+}
+
+/// Force-pushes the current branch to remote using --force-with-lease.
+fn force_push() -> Result<()> {
+    let status = Command::new("git")
         .args(["push", "--force-with-lease"])
         .status()
         .map_err(|e| AtomicError::Generic(format!("Failed to run git push: {e}")))?;
-    if !push_status.success() {
-        return Err(AtomicError::Static(
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AtomicError::Static(
             "Failed to push branch after squashing/amending",
-        ));
+        ))
     }
-
-    Ok(())
 }
 
 pub fn parse_branch_name(branch_name: &str) -> Result<Vec<String>> {
