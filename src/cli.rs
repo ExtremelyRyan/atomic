@@ -112,7 +112,7 @@ pub fn start_cli() {
         .get_one::<String>("base")
         .map_or_else(
             || git::get_current_branch().unwrap_or_else(|_| "main".to_string()),
-            |s| s.clone(),
+            Clone::clone,
         );
 
     if let Some(msg) = commit_msg {
